@@ -6,8 +6,8 @@ the headset directly over hidraw and to PipeWire. No network access.
 
 ## Screenshots
 
-| ![Home](screenshots/home.png)<br>**Home** | ![Equalizer](screenshots/equalizer.png)<br>**Equalizer** |
-|:---:|:---:|
+|       ![Home](screenshots/home.png)<br>**Home**       |  ![Equalizer](screenshots/equalizer.png)<br>**Equalizer**   |
+| :---------------------------------------------------: | :---------------------------------------------------------: |
 | ![Patchbay](screenshots/patchbay.png)<br>**Patchbay** | ![Soundboard](screenshots/soundboard.png)<br>**Soundboard** |
 
 ## Features
@@ -53,3 +53,7 @@ sudo udevadm control --reload && sudo udevadm trigger
 ```
 
 Replug the dongle afterwards.
+
+## LICENSE
+
+This project is licensed under the MIT LICENSE. See [LICENSE](https://github.com/xaprier/MCHOSE-V9PRO-CONTROLLER/blob/main/LICENSE) for details.

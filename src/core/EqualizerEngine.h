@@ -13,8 +13,12 @@ class PipeWireFilter;
 class QTimer;
 
 // 10-band equalizer plus Hub-style enhancements, running as a PipeWire filter-chain virtual sink
-// ("V9 PRO Equalizer") in front of the headset. While enabled that sink is made the default
-// output; disabling hands the default back to the headset.
+// ("V9 PRO Equalizer") in front of the headset. The chain runs while the equalizer or any
+// enhancement is on (the bands are flat when only enhancements are); while it runs its sink is the
+// default output, and stopping hands the default back to the headset.
+//
+// Profiles work like MCHOSE HUB's: selecting one loads it, editing a custom profile saves into it,
+// editing a built-in one marks it modified until it is saved as a new custom profile.
 class EqualizerEngine : public QObject
 {
     Q_OBJECT
@@ -34,10 +38,12 @@ class EqualizerEngine : public QObject
     Q_PROPERTY(int brillianceLevel READ brillianceLevel WRITE setBrillianceLevel NOTIFY settingsChanged)
     Q_PROPERTY(bool clarityEnabled READ clarityEnabled WRITE setClarityEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int clarityLevel READ clarityLevel WRITE setClarityLevel NOTIFY settingsChanged)
-    // Points {x: 0..1 log-frequency position, y: dB} of the band shape (preamp excluded).
-    Q_PROPERTY(QVariantList curve READ curve NOTIFY settingsChanged)
-    Q_PROPERTY(QStringList profiles READ profiles NOTIFY profilesChanged)
+    Q_PROPERTY(bool enhancementsActive READ enhancementsActive NOTIFY settingsChanged)
+    Q_PROPERTY(QStringList builtInProfiles READ builtInProfiles NOTIFY profilesChanged)
+    Q_PROPERTY(QStringList customProfiles READ customProfiles NOTIFY profilesChanged)
+    // Selected profile; empty when the gains belong to no profile (e.g. after deleting it).
     Q_PROPERTY(QString currentProfile READ currentProfile NOTIFY settingsChanged)
+    Q_PROPERTY(bool modified READ modified NOTIFY settingsChanged)
 
 public:
     explicit EqualizerEngine(AudioMixer *mixer, QObject *parent = nullptr);
@@ -71,20 +77,23 @@ public:
     int clarityLevel() const { return m_settings.enhancements.clarityLevel; }
     void setClarityLevel(int level);
 
-    QVariantList curve() const;
-    QStringList profiles() const;
-    QString currentProfile() const;
+    bool enhancementsActive() const;
+    QStringList builtInProfiles() const;
+    QStringList customProfiles() const;
+    QString currentProfile() const { return m_currentProfile; }
+    bool modified() const;
 
     Q_INVOKABLE void setBand(int band, double gainDb);
+    // Built-in profile: back to its stored gains. Custom profile or none: all bands flat.
     Q_INVOKABLE void reset();
     Q_INVOKABLE bool applyProfile(const QString &name);
-    Q_INVOKABLE bool saveProfile(const QString &name);
+    // Saves the current gains as a new custom profile ("Custom N") and selects it.
+    Q_INVOKABLE QString createProfile();
+    Q_INVOKABLE bool renameProfile(const QString &from, const QString &to);
     Q_INVOKABLE bool deleteProfile(const QString &name);
     Q_INVOKABLE bool isBuiltInProfile(const QString &name) const;
     Q_INVOKABLE bool importProfile(const QUrl &file);
-    Q_INVOKABLE bool exportProfile(const QUrl &file, const QString &name);
-    // Response in dB at a frequency, for the graph's hover read-out.
-    Q_INVOKABLE double responseAt(double frequency) const;
+    Q_INVOKABLE bool exportProfile(const QUrl &file);
 
     QString profileDirectory() const;
 
@@ -97,12 +106,18 @@ signals:
 
 private:
     void changed();
+    void updateRunning();
+    bool chainNeeded() const;
+    // What actually runs: the bands are flat while the equalizer itself is off.
+    v9::eq::Settings effectiveSettings() const;
+    const v9::eq::Profile *findProfile(const QString &name) const;
+    bool writeProfile(const QString &name, const std::array<double, v9::eq::BandCount> &gains);
     void start();
     void stop();
     void pushParams();
     void loadProfiles();
     void loadSettings();
-    void saveSettings() const;
+    void saveSettings();
     void setError(const QString &error);
 
     AudioMixer *m_mixer;
@@ -114,5 +129,7 @@ private:
     bool m_autoPreamp = true;
     QString m_targetSink;
     QList<v9::eq::Profile> m_profiles;
+    QString m_currentProfile;
+    bool m_profileDirty = false;
     QString m_error;
 };

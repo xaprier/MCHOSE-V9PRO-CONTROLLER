@@ -4,82 +4,155 @@ import QtQuick
 import QtQuick.Shapes
 import V9Control
 
-// Frequency response of the equalizer with a draggable handle per band.
+// MCHOSE HUB style band editor: bands evenly spaced, a smooth line through the band points and the
+// value under each point. Press anywhere in the plot to grab the nearest band and drag it.
 Item {
     id: root
 
-    property var curve: []
     property var gains: []
     property var labels: []
     property bool active: true
     signal bandMoved(int band, real gain)
 
-    // Vertical scale grows when enhancements push the curve past ±20 dB, but stays put while a
-    // handle is dragged so the handle keeps tracking the pointer.
-    property real range: 20
-    property int activeDrags: 0
-    readonly property real curveExtent: root.curve.reduce((m, p) => Math.max(m, Math.abs(p.y)), 0)
-    readonly property var bandFrequencies: [32, 60, 100, 250, 500, 1000, 2000, 4000, 8000, 14000]
+    readonly property real range: 20
+    readonly property int bandCount: root.labels.length
     readonly property color lineColor: active ? Theme.accent : Theme.textMuted
 
-    function xForPosition(position) {
-        return position * width
-    }
-    function xForFrequency(frequency) {
-        return xForPosition((Math.log10(frequency) - Math.log10(20)) / (Math.log10(20000) - Math.log10(20)))
+    readonly property real plotLeft: 24
+    readonly property real plotRight: width - 56
+    readonly property real plotTop: 34
+    readonly property real plotBottom: height - 30
+    readonly property real step: bandCount > 1 ? (plotRight - plotLeft) / (bandCount - 1) : 0
+
+    function xForBand(band) {
+        return plotLeft + band * step
     }
     function yForGain(gain) {
-        return height / 2 - Math.max(-range, Math.min(range, gain)) / range * (height / 2 - 12)
+        const g = Math.max(-range, Math.min(range, gain))
+        return plotTop + (range - g) / (2 * range) * (plotBottom - plotTop)
+    }
+    function gainForY(y) {
+        const g = range - (y - plotTop) / (plotBottom - plotTop) * 2 * range
+        return Math.round(Math.max(-range, Math.min(range, g)) * 2) / 2
+    }
+    function gainText(gain) {
+        return gain > 0 ? "+" + gain : String(gain)
     }
 
-    implicitHeight: 240
-
-    Binding on range {
-        when: root.activeDrags === 0
-        value: Math.max(20, Math.ceil(root.curveExtent / 10) * 10)
-        restoreMode: Binding.RestoreNone
+    // Monotone cubic (Fritsch–Carlson) through the band points: smooth, and it never overshoots a
+    // point, so the line does not suggest boosts that are not there.
+    readonly property var linePoints: {
+        const n = root.bandCount
+        if (n < 2 || root.gains.length < n || root.width <= 0)
+            return []
+        const ys = []
+        for (let i = 0; i < n; ++i)
+            ys.push(root.yForGain(root.gains[i]))
+        const d = []
+        for (let i = 0; i < n - 1; ++i)
+            d.push((ys[i + 1] - ys[i]) / root.step)
+        const m = [d[0]]
+        for (let i = 1; i < n - 1; ++i)
+            m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2)
+        m.push(d[n - 2])
+        for (let i = 0; i < n - 1; ++i) {
+            if (d[i] === 0) {
+                m[i] = 0
+                m[i + 1] = 0
+                continue
+            }
+            const a = m[i] / d[i]
+            const b = m[i + 1] / d[i]
+            const s = a * a + b * b
+            if (s > 9) {
+                const t = 3 / Math.sqrt(s)
+                m[i] = t * a * d[i]
+                m[i + 1] = t * b * d[i]
+            }
+        }
+        const points = []
+        const samples = 12
+        for (let i = 0; i < n - 1; ++i) {
+            for (let k = 0; k < samples; ++k) {
+                const t = k / samples
+                const t2 = t * t
+                const t3 = t2 * t
+                const y = (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * root.step * m[i]
+                        + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * root.step * m[i + 1]
+                points.push(Qt.point(root.xForBand(i) + t * root.step, y))
+            }
+        }
+        points.push(Qt.point(root.xForBand(n - 1), ys[n - 1]))
+        return points
     }
+
+    implicitHeight: 320
 
     Accessible.role: Accessible.Chart
-    Accessible.name: qsTr("Equalizer frequency response")
+    Accessible.name: qsTr("Equalizer bands")
 
+    // Bass / Mid / High header with dividers between 250–500 Hz and 2k–4k Hz.
     Repeater {
-        model: [-root.range, -root.range / 2, 0, root.range / 2, root.range]
+        model: [
+            { text: qsTr("Bass"), from: -0.5, to: 3.5 },
+            { text: qsTr("Mid"), from: 3.5, to: 6.5 },
+            { text: qsTr("High"), from: 6.5, to: 9.5 }
+        ]
 
         delegate: Item {
-            id: gridLine
+            id: region
 
-            required property real modelData
+            required property var modelData
 
-            y: root.yForGain(gridLine.modelData)
-            width: root.width
+            x: Math.max(0, root.xForBand(region.modelData.from))
+            width: Math.min(root.plotRight + root.step / 2, root.xForBand(region.modelData.to)) - x
+            height: 22
 
             Rectangle {
-                width: parent.width
-                height: 1
-                color: gridLine.modelData === 0 ? Theme.border : Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.5)
+                width: 1
+                height: parent.height
+                color: Theme.border
+            }
+            Rectangle {
+                x: parent.width - 1
+                width: 1
+                height: parent.height
+                color: Theme.border
             }
             Text {
-                y: -height - 2
-                text: (gridLine.modelData > 0 ? "+" : "") + gridLine.modelData + " dB"
-                color: Theme.textFaint
-                font.pixelSize: 10
+                anchors.centerIn: parent
+                text: region.modelData.text
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSmall
             }
         }
     }
 
     Repeater {
-        model: [100, 1000, 10000]
+        model: [20, 15, 10, 5, 0, -5, -10, -15, -20]
 
-        delegate: Rectangle {
-            id: frequencyLine
+        delegate: Item {
+            id: gridLine
 
             required property int modelData
 
-            x: root.xForFrequency(frequencyLine.modelData)
-            width: 1
-            height: root.height
-            color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.5)
+            x: root.plotLeft - 12
+            y: root.yForGain(gridLine.modelData)
+            width: root.plotRight - root.plotLeft + 24
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: gridLine.modelData === 0 ? Theme.border : Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.55)
+            }
+            Text {
+                visible: gridLine.modelData % 10 === 0
+                x: parent.width + 8
+                anchors.verticalCenter: parent.top
+                text: root.gainText(gridLine.modelData) + " dB"
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSmall
+            }
         }
     }
 
@@ -88,60 +161,102 @@ Item {
         preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
-            strokeColor: root.lineColor
-            strokeWidth: 2.5
-            fillColor: Qt.rgba(root.lineColor.r, root.lineColor.g, root.lineColor.b, 0.10)
-            joinStyle: ShapePath.RoundJoin
+            strokeColor: "transparent"
+            fillColor: Qt.rgba(root.lineColor.r, root.lineColor.g, root.lineColor.b, 0.08)
 
             // The polyline is its own subpath, so the 0 dB end points must be part of it for the
             // fill to close along the baseline.
             PathPolyline {
-                path: [Qt.point(0, root.yForGain(0))]
-                    .concat(root.curve.map(p => Qt.point(root.xForPosition(p.x), root.yForGain(p.y))))
-                    .concat([Qt.point(root.width, root.yForGain(0))])
+                path: root.linePoints.length === 0 ? []
+                    : [Qt.point(root.plotLeft, root.yForGain(0))].concat(root.linePoints, [Qt.point(root.plotRight, root.yForGain(0))])
+            }
+        }
+        ShapePath {
+            strokeColor: root.lineColor
+            strokeWidth: 2.5
+            fillColor: "transparent"
+            joinStyle: ShapePath.RoundJoin
+            capStyle: ShapePath.RoundCap
+
+            PathPolyline {
+                path: root.linePoints
             }
         }
     }
 
-    Repeater {
-        model: root.bandFrequencies.length
+    MouseArea {
+        id: plotArea
 
-        delegate: Rectangle {
+        property int band: -1
+
+        x: root.plotLeft - root.step / 2
+        y: root.plotTop - 12
+        width: root.plotRight - root.plotLeft + root.step
+        height: root.plotBottom - root.plotTop + 24
+        cursorShape: plotArea.band >= 0 ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+        preventStealing: true
+
+        onPressed: mouse => {
+            plotArea.band = Math.max(0, Math.min(root.bandCount - 1, Math.round((mouse.x + plotArea.x - root.plotLeft) / root.step)))
+            root.bandMoved(plotArea.band, root.gainForY(mouse.y + plotArea.y))
+            handles.itemAt(plotArea.band)?.forceActiveFocus()
+        }
+        onPositionChanged: mouse => {
+            if (plotArea.band >= 0)
+                root.bandMoved(plotArea.band, root.gainForY(mouse.y + plotArea.y))
+        }
+        onReleased: plotArea.band = -1
+        onCanceled: plotArea.band = -1
+    }
+
+    Repeater {
+        id: handles
+
+        model: root.bandCount
+
+        delegate: Item {
             id: handle
 
             required property int index
             readonly property real gain: root.gains.length > handle.index ? root.gains[handle.index] : 0
+            readonly property bool highlighted: plotArea.band === handle.index || handle.activeFocus
 
-            x: root.xForFrequency(root.bandFrequencies[handle.index]) - width / 2
-            y: root.yForGain(handle.gain) - height / 2
-            width: 14
-            height: 14
-            radius: 7
-            color: drag.active || hover.hovered ? root.lineColor : Theme.surface
-            border.color: root.lineColor
-            border.width: 2
+            x: root.xForBand(handle.index)
+            y: root.yForGain(handle.gain)
+            activeFocusOnTab: true
 
             Accessible.role: Accessible.Slider
             Accessible.name: qsTr("%1 Hz").arg(root.labels[handle.index] ?? "")
+            Accessible.description: qsTr("%1 dB").arg(handle.gain)
 
-            HoverHandler {
-                id: hover
-                cursorShape: Qt.SizeVerCursor
+            Keys.onUpPressed: root.bandMoved(handle.index, handle.gain + 0.5)
+            Keys.onDownPressed: root.bandMoved(handle.index, handle.gain - 0.5)
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
+                    root.bandMoved(handle.index, handle.gain + (event.key === Qt.Key_PageUp ? 3 : -3))
+                    event.accepted = true
+                } else if (event.key === Qt.Key_0 || event.key === Qt.Key_Home) {
+                    root.bandMoved(handle.index, 0)
+                    event.accepted = true
+                }
             }
-            DragHandler {
-                id: drag
-                xAxis.enabled: false
-                target: null
-                property real startGain: 0
-                onActiveChanged: {
-                    root.activeDrags += active ? 1 : -1
-                    if (active)
-                        drag.startGain = handle.gain
-                }
-                onTranslationChanged: {
-                    const perPixel = root.range / (root.height / 2 - 12)
-                    root.bandMoved(handle.index, Math.round((drag.startGain - drag.translation.y * perPixel) * 2) / 2)
-                }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: handle.highlighted ? 18 : 15
+                height: width
+                radius: width / 2
+                color: handle.highlighted ? Theme.text : root.lineColor
+                border.color: root.lineColor
+                border.width: handle.highlighted ? 4 : 0
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 12
+                text: root.gainText(handle.gain)
+                color: handle.highlighted ? Theme.text : Theme.textMuted
+                font.pixelSize: Theme.fontSmall
+                font.weight: handle.highlighted ? Font.DemiBold : Font.Normal
             }
         }
     }
@@ -155,11 +270,11 @@ Item {
             required property int index
             required property string modelData
 
-            x: root.xForFrequency(root.bandFrequencies[bandLabel.index]) - width / 2
+            x: root.xForBand(bandLabel.index) - width / 2
             y: root.height - height
-            text: bandLabel.modelData
+            text: root.step >= 52 ? qsTr("%1Hz").arg(bandLabel.modelData) : bandLabel.modelData
             color: Theme.textFaint
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontSmall
         }
     }
 }

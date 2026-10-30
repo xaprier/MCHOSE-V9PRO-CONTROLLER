@@ -1,10 +1,15 @@
+#include "AudioMixer.h"
+#include "EqualizerEngine.h"
 #include "EqualizerMath.h"
 #include "EqualizerProfile.h"
 #include "FilterChainConfig.h"
 #include "FirmwareImage.h"
 #include "V9Protocol.h"
 
+#include <QDir>
 #include <QFile>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QTest>
 #include <QtEndian>
 
@@ -68,6 +73,53 @@ class TestEngines : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+    }
+
+    // Hub-style profile handling: built-ins get "modified", custom profiles save edits into themselves.
+    void equalizerProfileFlow()
+    {
+        QSettings().clear();
+        AudioMixer mixer;
+        EqualizerEngine engine(&mixer);
+        QDir(engine.profileDirectory()).removeRecursively();
+        engine.deleteProfile(QStringLiteral("none")); // reloads the (now empty) custom list
+        QVERIFY(engine.customProfiles().isEmpty());
+
+        const QString builtIn = engine.builtInProfiles().at(1);
+        QVERIFY(engine.applyProfile(builtIn));
+        QCOMPARE(engine.currentProfile(), builtIn);
+        QVERIFY(!engine.modified());
+        engine.setBand(5, 7.5);
+        QVERIFY(engine.modified());
+        engine.reset();
+        QVERIFY(!engine.modified());
+
+        engine.setBand(5, 7.5);
+        const QString custom = engine.createProfile();
+        QCOMPARE(custom, QStringLiteral("Custom 1"));
+        QCOMPARE(engine.currentProfile(), custom);
+        QVERIFY(!engine.modified());
+
+        engine.setBand(0, -3.0); // saved into the custom profile once the debounce flushes
+        QVERIFY(engine.applyProfile(builtIn));
+        QVERIFY(engine.applyProfile(custom));
+        QCOMPARE(engine.gains().at(0).toDouble(), -3.0);
+        QCOMPARE(engine.gains().at(5).toDouble(), 7.5);
+
+        QVERIFY(engine.renameProfile(custom, QStringLiteral("Mine")));
+        QCOMPARE(engine.customProfiles(), QStringList{QStringLiteral("Mine")});
+        QCOMPARE(engine.currentProfile(), QStringLiteral("Mine"));
+        QVERIFY(!engine.renameProfile(QStringLiteral("Mine"), builtIn));
+
+        QVERIFY(engine.deleteProfile(QStringLiteral("Mine")));
+        QVERIFY(engine.currentProfile().isEmpty());
+        QVERIFY(engine.customProfiles().isEmpty());
+        QVERIFY(!engine.deleteProfile(builtIn));
+    }
+
     void flatEqualizerIsTransparent()
     {
         const eq::Settings flat;

@@ -16,7 +16,6 @@ qt_add_qml_module(v9pro-control
         qml/Main.qml
         qml/Theme.qml
         qml/components/ActionButton.qml
-        qml/components/BandSlider.qml
         qml/components/BatteryRing.qml
         qml/components/Card.qml
         qml/components/EqualizerGraph.qml
@@ -24,18 +23,19 @@ qt_add_qml_module(v9pro-control
         qml/components/LevelSlider.qml
         qml/components/ModeTile.qml
         qml/components/NavButton.qml
+        qml/components/ProfileItem.qml
+        qml/components/SectionHeader.qml
         qml/components/SegmentedControl.qml
         qml/components/StatusPill.qml
         qml/components/StyledComboBox.qml
         qml/components/StyledTextField.qml
         qml/components/ToggleSwitch.qml
         qml/components/WarningBanner.qml
-        qml/pages/DashboardPage.qml
         qml/pages/DevicePage.qml
         qml/pages/EqualizerPage.qml
+        qml/pages/HomePage.qml
         qml/pages/FirmwarePanel.qml
         qml/pages/LabPage.qml
-        qml/pages/SoundPage.qml
     RESOURCES
         qml/icons/battery.svg
         qml/icons/equalizer.svg
@@ -47,7 +47,6 @@ qt_add_qml_module(v9pro-control
         qml/icons/mic-off.svg
         qml/icons/music.svg
         qml/icons/target.svg
-        qml/icons/tune.svg
         qml/icons/volume.svg
         qml/icons/volume-off.svg
 )

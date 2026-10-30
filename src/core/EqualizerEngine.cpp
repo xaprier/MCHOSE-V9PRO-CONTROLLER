@@ -7,7 +7,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QPointF>
 #include <QProcess>
 #include <QSettings>
 #include <QStandardPaths>
@@ -23,11 +22,6 @@ namespace {
 
 constexpr int ParamDebounceMs = 25;
 constexpr int SaveDebounceMs = 500;
-
-double logPosition(double frequency)
-{
-    return (std::log10(frequency) - std::log10(20.0)) / (std::log10(20000.0) - std::log10(20.0));
-}
 
 } // namespace
 
@@ -53,14 +47,13 @@ EqualizerEngine::EqualizerEngine(AudioMixer *mixer, QObject *parent)
     });
     // Follow the headset: start once its sink appears, rebuild if it changes, stop if it goes.
     connect(m_mixer, &AudioMixer::outputChanged, this, [this] {
-        if (m_enabled && m_mixer->sinkName() != m_targetSink)
+        if (chainNeeded() && m_mixer->sinkName() != m_targetSink)
             m_mixer->sinkName().isEmpty() ? stop() : start();
     });
 
-    loadSettings();
     loadProfiles();
-    if (m_enabled && !m_mixer->sinkName().isEmpty())
-        start();
+    loadSettings();
+    updateRunning();
 }
 
 EqualizerEngine::~EqualizerEngine()
@@ -87,22 +80,45 @@ void EqualizerEngine::setEnabled(bool enabled)
         return;
     m_enabled = enabled;
     emit enabledChanged();
-    saveSettings();
-    if (enabled) {
-        if (m_mixer->sinkName().isEmpty())
-            setError(tr("Headset output not found; the equalizer starts when it appears."));
-        else
-            start();
-    } else {
+    if (enabled && m_mixer->sinkName().isEmpty())
+        setError(tr("Headset output not found; the equalizer starts when it appears."));
+    changed();
+    updateRunning();
+}
+
+bool EqualizerEngine::chainNeeded() const
+{
+    return m_enabled || enhancementsActive();
+}
+
+bool EqualizerEngine::enhancementsActive() const
+{
+    const eq::Enhancements &e = m_settings.enhancements;
+    return e.bassEnabled || e.brillianceEnabled || e.clarityEnabled;
+}
+
+void EqualizerEngine::updateRunning()
+{
+    const bool wanted = chainNeeded() && !m_mixer->sinkName().isEmpty();
+    if (wanted && !m_filter->isRunning())
+        start();
+    else if (!wanted && m_filter->isRunning())
         stop();
-    }
+}
+
+eq::Settings EqualizerEngine::effectiveSettings() const
+{
+    eq::Settings settings = m_settings;
+    if (!m_enabled)
+        settings.gains.fill(0.0);
+    return settings;
 }
 
 void EqualizerEngine::start()
 {
     setError({});
     m_targetSink = m_mixer->sinkName();
-    m_filter->start(pw::equalizerConfig(m_settings, m_targetSink));
+    m_filter->start(pw::equalizerConfig(effectiveSettings(), m_targetSink));
     emit activeChanged();
 }
 
@@ -139,6 +155,7 @@ void EqualizerEngine::setBand(int band, double gainDb)
     if (m_settings.gains[band] == gainDb)
         return;
     m_settings.gains[band] = gainDb;
+    m_profileDirty = !m_currentProfile.isEmpty() && !isBuiltInProfile(m_currentProfile);
     changed();
 }
 
@@ -180,6 +197,7 @@ void EqualizerEngine::setBassEnabled(bool on)
         return;
     m_settings.enhancements.bassEnabled = on;
     changed();
+    updateRunning();
 }
 
 void EqualizerEngine::setBrillianceEnabled(bool on)
@@ -188,6 +206,7 @@ void EqualizerEngine::setBrillianceEnabled(bool on)
         return;
     m_settings.enhancements.brillianceEnabled = on;
     changed();
+    updateRunning();
 }
 
 void EqualizerEngine::setClarityEnabled(bool on)
@@ -196,18 +215,25 @@ void EqualizerEngine::setClarityEnabled(bool on)
         return;
     m_settings.enhancements.clarityEnabled = on;
     changed();
+    updateRunning();
 }
 
 void EqualizerEngine::reset()
 {
-    m_settings.gains.fill(0.0);
+    const eq::Profile *profile = findProfile(m_currentProfile);
+    if (profile && profile->builtIn) {
+        m_settings.gains = profile->gains;
+    } else {
+        m_settings.gains.fill(0.0);
+        m_profileDirty = profile != nullptr;
+    }
     changed();
 }
 
 void EqualizerEngine::changed()
 {
     if (m_autoPreamp)
-        m_settings.preampDb = eq::headroomPreampDb(m_settings);
+        m_settings.preampDb = eq::headroomPreampDb(effectiveSettings());
     emit settingsChanged();
     m_saveDebounce->start();
     if (m_filter->isRunning())
@@ -216,24 +242,7 @@ void EqualizerEngine::changed()
 
 void EqualizerEngine::pushParams()
 {
-    m_filter->setParams(pw::equalizerParams(m_settings));
-}
-
-QVariantList EqualizerEngine::curve() const
-{
-    // Drawn without the preamp so the curve passes through the band handles; the preamp is
-    // shown as a number next to it.
-    eq::Settings shape = m_settings;
-    shape.preampDb = 0.0;
-    QVariantList points;
-    for (const QPointF &p : eq::responseCurve(shape))
-        points << QPointF(logPosition(p.x()), p.y());
-    return points;
-}
-
-double EqualizerEngine::responseAt(double frequency) const
-{
-    return eq::responseDb(m_settings, frequency);
+    m_filter->setParams(pw::equalizerParams(effectiveSettings()));
 }
 
 QString EqualizerEngine::profileDirectory() const
@@ -241,21 +250,41 @@ QString EqualizerEngine::profileDirectory() const
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/v9pro-control/profiles");
 }
 
-QStringList EqualizerEngine::profiles() const
+QStringList EqualizerEngine::builtInProfiles() const
 {
     QStringList names;
-    for (const eq::Profile &p : m_profiles)
-        names << p.name;
+    for (const eq::Profile &p : m_profiles) {
+        if (p.builtIn)
+            names << p.name;
+    }
     return names;
 }
 
-QString EqualizerEngine::currentProfile() const
+QStringList EqualizerEngine::customProfiles() const
 {
+    QStringList names;
     for (const eq::Profile &p : m_profiles) {
-        if (p.gains == m_settings.gains)
-            return p.name;
+        if (!p.builtIn)
+            names << p.name;
     }
-    return {};
+    return names;
+}
+
+bool EqualizerEngine::modified() const
+{
+    const eq::Profile *profile = findProfile(m_currentProfile);
+    return profile && profile->builtIn && profile->gains != m_settings.gains;
+}
+
+const eq::Profile *EqualizerEngine::findProfile(const QString &name) const
+{
+    if (name.isEmpty())
+        return nullptr;
+    for (const eq::Profile &p : m_profiles) {
+        if (p.name == name)
+            return &p;
+    }
+    return nullptr;
 }
 
 bool EqualizerEngine::isBuiltInProfile(const QString &name) const
@@ -265,65 +294,106 @@ bool EqualizerEngine::isBuiltInProfile(const QString &name) const
 
 bool EqualizerEngine::applyProfile(const QString &name)
 {
-    for (const eq::Profile &p : m_profiles) {
-        if (p.name == name) {
-            m_settings.gains = p.gains;
-            changed();
-            return true;
-        }
-    }
-    return false;
+    const eq::Profile *profile = findProfile(name);
+    if (!profile)
+        return false;
+    saveSettings(); // flush pending edits of the previous custom profile
+    m_currentProfile = profile->name;
+    m_settings.gains = profile->gains;
+    m_profileDirty = false;
+    changed();
+    return true;
 }
 
-bool EqualizerEngine::saveProfile(const QString &name)
+bool EqualizerEngine::writeProfile(const QString &name, const std::array<double, eq::BandCount> &gains)
 {
-    const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty() || isBuiltInProfile(trimmed))
-        return false;
     QDir().mkpath(profileDirectory());
-    QFile file(profileDirectory() + QLatin1Char('/') + eq::profileFileName(trimmed));
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    QFile file(profileDirectory() + QLatin1Char('/') + eq::profileFileName(name));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        setError(tr("Cannot save profile: %1").arg(file.errorString()));
         return false;
-    file.write(eq::serializeProfile({trimmed, m_settings.gains, false}));
-    file.close();
+    }
+    file.write(eq::serializeProfile({name, gains, false}));
+    return true;
+}
+
+QString EqualizerEngine::createProfile()
+{
+    QString name;
+    for (int n = 1; name.isEmpty() || findProfile(name); ++n)
+        name = tr("Custom %1").arg(n);
+    if (!writeProfile(name, m_settings.gains))
+        return {};
     loadProfiles();
-    emit settingsChanged();
+    m_currentProfile = name;
+    m_profileDirty = false;
+    changed();
+    return name;
+}
+
+bool EqualizerEngine::renameProfile(const QString &from, const QString &to)
+{
+    const QString trimmed = to.trimmed();
+    const eq::Profile *profile = findProfile(from);
+    if (!profile || profile->builtIn || trimmed.isEmpty() || trimmed == from || findProfile(trimmed))
+        return false;
+    if (!writeProfile(trimmed, profile->gains))
+        return false;
+    QFile::remove(profileDirectory() + QLatin1Char('/') + eq::profileFileName(from));
+    if (m_currentProfile == from)
+        m_currentProfile = trimmed;
+    loadProfiles();
+    changed();
     return true;
 }
 
 bool EqualizerEngine::deleteProfile(const QString &name)
 {
-    if (isBuiltInProfile(name))
+    const eq::Profile *profile = findProfile(name);
+    if (!profile || profile->builtIn)
         return false;
     const bool removed = QFile::remove(profileDirectory() + QLatin1Char('/') + eq::profileFileName(name));
+    if (m_currentProfile == name) {
+        // The gains stay as they are; they just no longer belong to a profile.
+        m_currentProfile.clear();
+        m_profileDirty = false;
+    }
     loadProfiles();
-    emit settingsChanged();
+    changed();
     return removed;
 }
 
 bool EqualizerEngine::importProfile(const QUrl &file)
 {
     QFile in(file.isLocalFile() ? file.toLocalFile() : file.toString());
-    if (!in.open(QIODevice::ReadOnly))
+    if (!in.open(QIODevice::ReadOnly)) {
+        setError(tr("%1: %2").arg(in.fileName(), in.errorString()));
         return false;
+    }
     QString error;
     auto profile = eq::parseProfile(in.readAll(), QFileInfo(in).completeBaseName(), &error);
     if (!profile) {
         setError(tr("%1: %2").arg(in.fileName(), error));
         return false;
     }
-    if (isBuiltInProfile(profile->name))
-        profile->name += tr(" (imported)");
-    m_settings.gains = profile->gains;
-    return saveProfile(profile->name);
+    QString name = profile->name;
+    for (int n = 2; findProfile(name); ++n)
+        name = QStringLiteral("%1 (%2)").arg(profile->name).arg(n);
+    if (!writeProfile(name, profile->gains))
+        return false;
+    loadProfiles();
+    return applyProfile(name);
 }
 
-bool EqualizerEngine::exportProfile(const QUrl &file, const QString &name)
+bool EqualizerEngine::exportProfile(const QUrl &file)
 {
     QFile out(file.isLocalFile() ? file.toLocalFile() : file.toString());
-    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        setError(tr("%1: %2").arg(out.fileName(), out.errorString()));
         return false;
-    out.write(eq::serializeProfile({name.trimmed().isEmpty() ? tr("Custom") : name.trimmed(), m_settings.gains, false}));
+    }
+    const QString name = m_currentProfile.isEmpty() ? tr("Custom") : m_currentProfile;
+    out.write(eq::serializeProfile({name, m_settings.gains, false}));
     return true;
 }
 
@@ -360,18 +430,37 @@ void EqualizerEngine::loadSettings()
     e.brillianceLevel = s.value(QStringLiteral("brillianceLevel"), 5).toInt();
     e.clarityEnabled = s.value(QStringLiteral("clarityEnabled"), false).toBool();
     e.clarityLevel = s.value(QStringLiteral("clarityLevel"), 5).toInt();
+    m_currentProfile = s.value(QStringLiteral("profile")).toString();
+    if (!findProfile(m_currentProfile)) {
+        // Settings from before profiles were tracked: adopt a profile with the same gains.
+        m_currentProfile.clear();
+        for (const eq::Profile &p : m_profiles) {
+            if (p.gains == m_settings.gains) {
+                m_currentProfile = p.name;
+                break;
+            }
+        }
+    }
     if (m_autoPreamp)
-        m_settings.preampDb = eq::headroomPreampDb(m_settings);
+        m_settings.preampDb = eq::headroomPreampDb(effectiveSettings());
 }
 
-void EqualizerEngine::saveSettings() const
+void EqualizerEngine::saveSettings()
 {
+    if (m_profileDirty && findProfile(m_currentProfile) && writeProfile(m_currentProfile, m_settings.gains)) {
+        m_profileDirty = false;
+        for (eq::Profile &p : m_profiles) {
+            if (p.name == m_currentProfile)
+                p.gains = m_settings.gains;
+        }
+    }
     QSettings s;
     s.beginGroup(QStringLiteral("equalizer"));
     s.setValue(QStringLiteral("enabled"), m_enabled);
     s.setValue(QStringLiteral("autoPreamp"), m_autoPreamp);
     s.setValue(QStringLiteral("preamp"), m_settings.preampDb);
     s.setValue(QStringLiteral("gains"), gains());
+    s.setValue(QStringLiteral("profile"), m_currentProfile);
     const eq::Enhancements &e = m_settings.enhancements;
     s.setValue(QStringLiteral("bassEnabled"), e.bassEnabled);
     s.setValue(QStringLiteral("bassLevel"), e.bassLevel);

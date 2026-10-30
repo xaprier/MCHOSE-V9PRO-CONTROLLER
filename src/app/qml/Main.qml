@@ -6,7 +6,7 @@ import V9Control
 ApplicationWindow {
     id: window
 
-    width: 1040
+    width: 1100
     height: 700
     minimumWidth: 820
     minimumHeight: 560
@@ -67,38 +67,31 @@ ApplicationWindow {
                 }
 
                 NavButton {
-                    text: qsTr("Dashboard")
+                    text: qsTr("Home")
                     icon.source: Qt.resolvedUrl("icons/headset.svg")
                     checked: window.currentPage === 0
                     onClicked: window.currentPage = 0
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Sound")
-                    icon.source: Qt.resolvedUrl("icons/tune.svg")
+                    text: qsTr("Equalizer")
+                    icon.source: Qt.resolvedUrl("icons/equalizer.svg")
                     checked: window.currentPage === 1
                     onClicked: window.currentPage = 1
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Equalizer")
-                    icon.source: Qt.resolvedUrl("icons/equalizer.svg")
+                    text: qsTr("Device")
+                    icon.source: Qt.resolvedUrl("icons/info.svg")
                     checked: window.currentPage === 2
                     onClicked: window.currentPage = 2
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Device")
-                    icon.source: Qt.resolvedUrl("icons/info.svg")
-                    checked: window.currentPage === 3
-                    onClicked: window.currentPage = 3
-                    Layout.fillWidth: true
-                }
-                NavButton {
                     text: qsTr("Lab")
                     icon.source: Qt.resolvedUrl("icons/flask.svg")
-                    checked: window.currentPage === 4
-                    onClicked: window.currentPage = 4
+                    checked: window.currentPage === 3
+                    onClicked: window.currentPage = 3
                     Layout.fillWidth: true
                 }
 
@@ -120,8 +113,9 @@ ApplicationWindow {
             Layout.fillHeight: true
             Layout.margins: 24
 
-            DashboardPage {}
-            SoundPage {}
+            HomePage {
+                onOpenEqualizer: window.currentPage = 1
+            }
             EqualizerPage {}
             DevicePage {}
             LabPage {}

@@ -5,9 +5,9 @@ Things that need the real headset and a human. Record results in `docs/ANALYSIS.
 
 Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=true"`).
 
-## 1. Sound mode set (Dashboard)
+## 1. Sound mode set (Home)
 - [x] Click Game 1 / Game 2 / Music; the tile stays selected (read-back) and the sound changes. (2026-10-30)
-- [ ] Press the mode button on the headset; the dashboard follows within a second (push report).
+- [ ] Press the mode button on the headset; the Home page follows within a second (push report).
 
 ## 2. Mic button traffic (Lab → HID monitor)
 - [x] Start capture, press the mic button 4–5 times, stop. (2026-10-30: no reports at all)
@@ -20,11 +20,11 @@ Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=
 - [x] (2026-10-30: no reply, unsupported) Auto power-off → Read. Reply? Note the raw value.
 - [ ] Do NOT use factory reset unless we decide to.
 
-## 4. Mic monitor (Sound)
+## 4. Mic monitor (Home)
 - [x] Monitor on, level 50 %: you hear yourself with small delay. (2026-10-30, also via RNNoise)
 - [x] Hardware mode (ALSA 'PCM',1): broken, cuts headset output → removed. (2026-10-30)
 
-## 5. Noise suppression (Sound)
+## 5. Noise suppression (Home)
 - [x] (2026-10-30, RNNoise) Enable; default input becomes "V9 PRO Microphone (noise suppressed)". Record a test in any app
       with a fan/keyboard noise, compare on/off.
 - [ ] Optional: install `noise-suppression-for-voice`, restart, try RNNoise.

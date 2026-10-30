@@ -97,6 +97,12 @@ public:
 
     QString profileDirectory() const;
 
+    // First half of quitting: point the default output and current streams back at the headset
+    // while the virtual sink still exists. Apps such as browsers reopen their streams when the
+    // default changes and pause if the sink vanishes mid-way, so the caller waits a moment before
+    // destroying the engine.
+    void handOver();
+
 signals:
     void enabledChanged();
     void activeChanged();

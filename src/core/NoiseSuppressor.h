@@ -42,6 +42,8 @@ public:
     bool available() const;
     int vadThreshold() const { return m_vadThreshold; }
     void setVadThreshold(int threshold);
+    // Same as EqualizerEngine::handOver(), for the capture side.
+    void handOver();
     bool active() const;
     QString error() const { return m_error; }
 

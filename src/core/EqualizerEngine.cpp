@@ -68,6 +68,15 @@ EqualizerEngine::~EqualizerEngine()
     }
 }
 
+void EqualizerEngine::handOver()
+{
+    if (!m_filter->isRunning() || m_mixer->sinkName().isEmpty())
+        return;
+    if (m_mixer->defaultSink() == pw::EqualizerSinkName)
+        QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-sink"), m_mixer->sinkName()});
+    AudioMixer::moveStreams(AudioMixer::StreamKind::Playback, pw::EqualizerSinkName, m_mixer->sinkName());
+}
+
 bool EqualizerEngine::available() const
 {
     return PipeWireFilter::isAvailable();

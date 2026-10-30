@@ -44,7 +44,7 @@ TrayIcon::TrayIcon(HeadsetController *headset, EqualizerEngine *equalizer, Noise
     connect(m_monitorAction, &QAction::triggered, m_monitor, &MicMonitor::setEnabled);
 
     m_menu->addSeparator();
-    m_menu->addAction(tr("Quit"), qApp, &QCoreApplication::quit);
+    m_menu->addAction(tr("Quit"), this, &TrayIcon::quitRequested);
 
     m_tray->setContextMenu(m_menu);
     connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {

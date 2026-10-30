@@ -12,13 +12,18 @@
 #include <QTimer>
 
 #include <csignal>
+#include <functional>
 #include <memory>
+#include <utility>
 #include <sys/socket.h>
 #include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcApp, "v9.app")
 
 namespace {
+
+// Time for apps to follow the default devices back to the headset before the virtual ones go.
+constexpr int HandOverMs = 600;
 
 int signalPipe[2] = {-1, -1};
 
@@ -28,17 +33,16 @@ void onTerminationSignal(int)
     [[maybe_unused]] const auto written = ::write(signalPipe[0], &byte, 1);
 }
 
-// SIGTERM (logout, systemd) and SIGINT must go through a normal quit: the destructors hand the
-// default devices and running streams back to the headset before the virtual nodes disappear.
-void quitOnTerminationSignals()
+// SIGTERM (logout, systemd) and SIGINT must go through the same graceful quit as the tray menu.
+void quitOnTerminationSignals(const std::function<void()> &quit)
 {
     if (::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, signalPipe) != 0)
         return;
     auto *notifier = new QSocketNotifier(signalPipe[1], QSocketNotifier::Read, qApp);
-    QObject::connect(notifier, &QSocketNotifier::activated, qApp, [] {
+    QObject::connect(notifier, &QSocketNotifier::activated, qApp, [quit] {
         char byte;
         [[maybe_unused]] const auto read = ::read(signalPipe[1], &byte, 1);
-        QCoreApplication::quit();
+        quit();
     });
     struct sigaction action {};
     action.sa_handler = onTerminationSignal;
@@ -73,7 +77,6 @@ int main(int argc, char *argv[])
     parser.addOption(pageOption);
     parser.addOption(hiddenOption);
     parser.process(app);
-    quitOnTerminationSignals();
 
     HeadsetController headset;
     AudioMixer mixer;
@@ -89,6 +92,18 @@ int main(int argc, char *argv[])
     MonitorForeign::instance = &monitor;
     FirmwareForeign::instance = &firmware;
     HidLogForeign::instance = &hidLog;
+
+    // Hand the default devices and streams back first and quit a little later; the destructors
+    // then only tear down nodes nothing uses any more.
+    bool quitting = false;
+    const auto gracefulQuit = [&] {
+        if (std::exchange(quitting, true))
+            return;
+        equalizer.handOver();
+        noiseSuppressor.handOver();
+        QTimer::singleShot(HandOverMs, &app, &QCoreApplication::quit);
+    };
+    quitOnTerminationSignals(gracefulQuit);
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
@@ -110,9 +125,12 @@ int main(int argc, char *argv[])
     if (TrayIcon::isAvailable() && !parser.isSet(screenshotOption)) {
         tray = std::make_unique<TrayIcon>(&headset, &equalizer, &noiseSuppressor, &monitor);
         tray->setWindow(window);
-        QApplication::setQuitOnLastWindowClosed(false);
+        QObject::connect(tray.get(), &TrayIcon::quitRequested, &app, gracefulQuit);
         window->setProperty("hideOnClose", true);
     }
+    QApplication::setQuitOnLastWindowClosed(false);
+    if (!tray)
+        QObject::connect(&app, &QGuiApplication::lastWindowClosed, &app, gracefulQuit);
     if (!tray || !parser.isSet(hiddenOption))
         window->show();
 

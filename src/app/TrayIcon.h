@@ -26,6 +26,9 @@ public:
     static bool isAvailable();
     void setWindow(QQuickWindow *window);
 
+signals:
+    void quitRequested();
+
 public slots:
     void showWindow();
     void toggleWindow();

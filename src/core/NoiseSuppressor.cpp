@@ -39,6 +39,15 @@ NoiseSuppressor::~NoiseSuppressor()
     }
 }
 
+void NoiseSuppressor::handOver()
+{
+    if (!active() || m_mixer->sourceName().isEmpty())
+        return;
+    if (m_mixer->defaultSource() == pw::NoiseSourceName)
+        QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-source"), m_mixer->sourceName()});
+    AudioMixer::moveStreams(AudioMixer::StreamKind::Capture, pw::NoiseSourceName, m_mixer->sourceName());
+}
+
 QString NoiseSuppressor::findRnnoisePlugin()
 {
     QStringList dirs = qEnvironmentVariable("LADSPA_PATH").split(QLatin1Char(':'), Qt::SkipEmptyParts);

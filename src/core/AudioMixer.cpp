@@ -1,5 +1,7 @@
 #include "AudioMixer.h"
 
+#include "FilterChainConfig.h"
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -101,11 +103,22 @@ void AudioMixer::refresh()
         return;
 
     run(m_pactl, {QStringLiteral("get-default-sink")}, [this](const QByteArray &out) {
-        m_defaultSink = QString::fromUtf8(out).trimmed();
-        const bool isDefault = !m_sinkName.isEmpty() && m_defaultSink == m_sinkName;
+        const QString sink = QString::fromUtf8(out).trimmed();
+        if (sink != m_defaultSink) {
+            m_defaultSink = sink;
+            emit defaultsChanged();
+        }
+        const bool isDefault = isHeadsetDefault();
         if (isDefault != m_outputIsDefault) {
             m_outputIsDefault = isDefault;
             emit outputChanged();
+        }
+    });
+    run(m_pactl, {QStringLiteral("get-default-source")}, [this](const QByteArray &out) {
+        const QString source = QString::fromUtf8(out).trimmed();
+        if (source != m_defaultSource) {
+            m_defaultSource = source;
+            emit defaultsChanged();
         }
     });
 
@@ -117,7 +130,7 @@ void AudioMixer::refresh()
                 m_outputVolume = sink->volume;
                 m_outputMuted = sink->muted;
             }
-            m_outputIsDefault = sink && m_defaultSink == sink->name;
+            m_outputIsDefault = isHeadsetDefault();
             const int card = sink ? sink->alsaCard : -1;
             if (card != m_alsaCard) {
                 m_alsaCard = card;
@@ -145,6 +158,26 @@ void AudioMixer::makeDefaultOutput()
     run(m_pactl, {QStringLiteral("set-default-sink"), m_sinkName});
     if (!m_sourceName.isEmpty())
         run(m_pactl, {QStringLiteral("set-default-source"), m_sourceName});
+}
+
+bool AudioMixer::isHeadsetDefault() const
+{
+    // Routing through the equalizer still ends in the headset.
+    return !m_sinkName.isEmpty() && (m_defaultSink == m_sinkName || m_defaultSink == v9::pw::EqualizerSinkName);
+}
+
+void AudioMixer::setDefaultSink(const QString &name)
+{
+    if (name.isEmpty() || m_pactl.isEmpty())
+        return;
+    run(m_pactl, {QStringLiteral("set-default-sink"), name});
+}
+
+void AudioMixer::setDefaultSource(const QString &name)
+{
+    if (name.isEmpty() || m_pactl.isEmpty())
+        return;
+    run(m_pactl, {QStringLiteral("set-default-source"), name});
 }
 
 void AudioMixer::setOutputVolume(int percent)

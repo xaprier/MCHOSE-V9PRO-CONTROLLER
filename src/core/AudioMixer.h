@@ -30,6 +30,10 @@ class AudioMixer : public QObject
     Q_PROPERTY(bool sidetoneAvailable READ sidetoneAvailable NOTIFY sidetoneChanged)
     Q_PROPERTY(int sidetoneLevel READ sidetoneLevel WRITE setSidetoneLevel NOTIFY sidetoneChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QString sinkName READ sinkName NOTIFY outputChanged)
+    Q_PROPERTY(QString sourceName READ sourceName NOTIFY micChanged)
+    Q_PROPERTY(QString defaultSink READ defaultSink NOTIFY defaultsChanged)
+    Q_PROPERTY(QString defaultSource READ defaultSource NOTIFY defaultsChanged)
 
 public:
     explicit AudioMixer(QObject *parent = nullptr);
@@ -45,6 +49,13 @@ public:
     bool sidetoneAvailable() const { return m_alsaCard >= 0 && m_sidetoneLevel >= 0; }
     int sidetoneLevel() const { return m_sidetoneLevel; }
     QString lastError() const { return m_lastError; }
+    QString sinkName() const { return m_sinkName; }
+    QString sourceName() const { return m_sourceName; }
+    QString defaultSink() const { return m_defaultSink; }
+    QString defaultSource() const { return m_defaultSource; }
+
+    void setDefaultSink(const QString &name);
+    void setDefaultSource(const QString &name);
 
     void setOutputVolume(int percent);
     void setOutputMuted(bool muted);
@@ -69,9 +80,11 @@ signals:
     void micChanged();
     void sidetoneChanged();
     void lastErrorChanged();
+    void defaultsChanged();
 
 private:
     void run(const QString &program, const QStringList &arguments, std::function<void(const QByteArray &)> onOutput = {});
+    bool isHeadsetDefault() const;
     void startSubscription();
     void flushPending();
     void refreshSidetone();
@@ -86,6 +99,7 @@ private:
     QString m_sinkName;
     QString m_sourceName;
     QString m_defaultSink;
+    QString m_defaultSource;
     int m_alsaCard = -1;
 
     int m_outputVolume = 0;

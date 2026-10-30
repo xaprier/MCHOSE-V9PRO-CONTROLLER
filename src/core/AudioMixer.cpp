@@ -6,7 +6,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
-#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -16,10 +15,6 @@ namespace {
 
 // pipewire-pulse names the nodes after the USB product string.
 const QString HeadsetNodeTag = QStringLiteral("MCHOSE_V9_PRO");
-
-// ALSA 'PCM',1 on the V9 PRO dongle is a mono playback volume next to the stereo master; on
-// C-Media parts that is the mic-to-headphone monitor. Unverified, see docs/ANALYSIS.md §3.
-const QString SidetoneControl = QStringLiteral("PCM,1");
 
 constexpr int RefreshDebounceMs = 120;
 constexpr int WriteDebounceMs = 40;
@@ -46,7 +41,6 @@ int averagePercent(const QJsonObject &volume)
 AudioMixer::AudioMixer(QObject *parent)
     : QObject(parent)
     , m_pactl(QStandardPaths::findExecutable(QStringLiteral("pactl")))
-    , m_amixer(QStandardPaths::findExecutable(QStringLiteral("amixer")))
     , m_refreshDebounce(new QTimer(this))
     , m_writeDebounce(new QTimer(this))
 {
@@ -88,10 +82,6 @@ std::optional<AudioMixer::Endpoint> AudioMixer::findHeadsetEndpoint(const QByteA
         endpoint.name = name;
         endpoint.volume = averagePercent(node.value(QStringLiteral("volume")).toObject());
         endpoint.muted = node.value(QStringLiteral("mute")).toBool();
-        const QJsonObject properties = node.value(QStringLiteral("properties")).toObject();
-        endpoint.alsaCard = properties.value(QStringLiteral("alsa.card")).toString().toInt();
-        if (!properties.contains(QStringLiteral("alsa.card")))
-            endpoint.alsaCard = -1;
         return endpoint;
     }
     return std::nullopt;
@@ -131,11 +121,6 @@ void AudioMixer::refresh()
                 m_outputMuted = sink->muted;
             }
             m_outputIsDefault = isHeadsetDefault();
-            const int card = sink ? sink->alsaCard : -1;
-            if (card != m_alsaCard) {
-                m_alsaCard = card;
-                refreshSidetone();
-            }
             emit outputChanged();
         });
 
@@ -220,17 +205,6 @@ void AudioMixer::setMicMuted(bool muted)
     emit micChanged();
 }
 
-void AudioMixer::setSidetoneLevel(int percent)
-{
-    percent = qBound(0, percent, 100);
-    if (!sidetoneAvailable() || percent == m_sidetoneLevel)
-        return;
-    m_sidetoneLevel = percent;
-    m_pendingSidetone = percent;
-    m_writeDebounce->start();
-    emit sidetoneChanged();
-}
-
 void AudioMixer::flushPending()
 {
     // Sliders emit far faster than pactl can be spawned; only the latest value is written.
@@ -242,27 +216,6 @@ void AudioMixer::flushPending()
         run(m_pactl, {QStringLiteral("set-source-volume"), m_sourceName, QString::number(m_pendingMicVolume) + QLatin1Char('%')});
         m_pendingMicVolume = -1;
     }
-    if (m_pendingSidetone >= 0 && !m_amixer.isEmpty()) {
-        run(m_amixer, {QStringLiteral("-q"), QStringLiteral("-c"), QString::number(m_alsaCard), QStringLiteral("sset"),
-                       SidetoneControl, QString::number(m_pendingSidetone) + QLatin1Char('%')});
-        m_pendingSidetone = -1;
-    }
-}
-
-void AudioMixer::refreshSidetone()
-{
-    if (m_alsaCard < 0 || m_amixer.isEmpty()) {
-        m_sidetoneLevel = -1;
-        emit sidetoneChanged();
-        return;
-    }
-    run(m_amixer, {QStringLiteral("-c"), QString::number(m_alsaCard), QStringLiteral("sget"), SidetoneControl},
-        [this](const QByteArray &out) {
-            static const QRegularExpression percent(QStringLiteral("\\[(\\d+)%\\]"));
-            const auto match = percent.match(QString::fromUtf8(out));
-            m_sidetoneLevel = match.hasMatch() ? match.captured(1).toInt() : -1;
-            emit sidetoneChanged();
-        });
 }
 
 void AudioMixer::startSubscription()

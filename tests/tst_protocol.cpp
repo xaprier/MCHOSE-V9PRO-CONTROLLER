@@ -101,7 +101,6 @@ private slots:
         QVERIFY(endpoint->name.contains(QStringLiteral("MCHOSE_V9_PRO")));
         QCOMPARE(endpoint->volume, 81);
         QVERIFY(endpoint->muted);
-        QCOMPARE(endpoint->alsaCard, 2);
 
         QVERIFY(!AudioMixer::findHeadsetEndpoint(R"([{"name":"alsa_output.usb-..._MCHOSE_V9_PRO_x.monitor"}])"));
     }

@@ -137,19 +137,8 @@ ScrollView {
                 ToggleSwitch {
                     text: Monitor.active ? qsTr("On") : qsTr("Off")
                     checked: Monitor.enabled
-                    enabled: Mixer.micAvailable && Mixer.outputAvailable
+                    enabled: Monitor.available && Mixer.micAvailable && Mixer.outputAvailable
                     onToggled: Monitor.enabled = checked
-                }
-                Item {
-                    Layout.fillWidth: true
-                }
-                SegmentedControl {
-                    value: Monitor.mode
-                    options: [
-                        { text: qsTr("Software"), value: Monitor.Software, enabled: Monitor.softwareAvailable },
-                        { text: qsTr("Hardware (experimental)"), value: Monitor.Hardware, enabled: Monitor.hardwareAvailable }
-                    ]
-                    onActivated: value => Monitor.mode = value
                 }
             }
 
@@ -164,11 +153,9 @@ ScrollView {
             }
 
             Text {
-                text: Monitor.mode === Monitor.Hardware
-                      ? qsTr("Hardware mode drives the dongle's secondary ALSA playback control, believed to be the chip's own mic monitor: no latency, but unverified. If you hear nothing, switch to Software.")
-                      : NoiseSuppression.active
-                        ? qsTr("Software mode loops the noise-suppressed microphone into the headset, so you hear what others hear.")
-                        : qsTr("Software mode loops the microphone into the headset through PipeWire (a few milliseconds of delay).")
+                text: NoiseSuppression.active
+                      ? qsTr("Loops the noise-suppressed microphone into the headset, so you hear what others hear.")
+                      : qsTr("Loops the microphone into the headset through PipeWire (a few milliseconds of delay).")
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall
                 wrapMode: Text.WordWrap

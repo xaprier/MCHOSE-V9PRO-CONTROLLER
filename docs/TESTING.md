@@ -21,12 +21,11 @@ Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=
 - [ ] Do NOT use factory reset unless we decide to.
 
 ## 4. Mic monitor (Sound)
-- [ ] Software mode on, level 50 %: you hear yourself with small delay.
-- [ ] Hardware mode on: do you hear yourself? Does the level slider change it? (Decides whether
-      ALSA 'PCM',1 really is sidetone.)
+- [x] Monitor on, level 50 %: you hear yourself with small delay. (2026-10-30, also via RNNoise)
+- [x] Hardware mode (ALSA 'PCM',1): broken, cuts headset output → removed. (2026-10-30)
 
 ## 5. Noise suppression (Sound)
-- [ ] Enable; default input becomes "V9 PRO Microphone (noise suppressed)". Record a test in any app
+- [x] (2026-10-30, RNNoise) Enable; default input becomes "V9 PRO Microphone (noise suppressed)". Record a test in any app
       with a fan/keyboard noise, compare on/off.
 - [ ] Optional: install `noise-suppression-for-voice`, restart, try RNNoise.
 

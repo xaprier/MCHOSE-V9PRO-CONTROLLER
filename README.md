@@ -14,7 +14,7 @@ the headset directly over hidraw and to PipeWire. No network access.
 - 10-band equalizer with draggable response curve, bass / brightening / vocal clarity, auto preamp,
   and profiles in MCHOSE HUB's JSON format (PipeWire filter-chain)
 - Microphone noise suppression (WebRTC built in, RNNoise if installed)
-- Microphone monitor (software loopback, or the dongle's hardware control — experimental)
+- Microphone monitor (PipeWire loopback; follows noise suppression)
 - Lab: HID monitor, experimental headset settings, and a voice prompt silencer that rebuilds the stock
   firmware with the mic on/off announcements silenced and flashes it over the dongle
 

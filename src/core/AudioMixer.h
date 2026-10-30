@@ -13,8 +13,7 @@ class QTimer;
 
 Q_DECLARE_LOGGING_CATEGORY(lcAudio)
 
-// Volume and mute of the headset's PipeWire sink/source, plus the ALSA mixer control that looks
-// like hardware sidetone. Talks to pipewire-pulse through pactl so no client library is needed;
+// Volume and mute of the headset's PipeWire sink/source. Talks to pipewire-pulse through pactl so no client library is needed;
 // `pactl subscribe` keeps the state in sync with changes made elsewhere (keys, desktop applets).
 class AudioMixer : public QObject
 {
@@ -27,8 +26,6 @@ class AudioMixer : public QObject
     Q_PROPERTY(bool micAvailable READ micAvailable NOTIFY micChanged)
     Q_PROPERTY(int micVolume READ micVolume WRITE setMicVolume NOTIFY micChanged)
     Q_PROPERTY(bool micMuted READ micMuted WRITE setMicMuted NOTIFY micChanged)
-    Q_PROPERTY(bool sidetoneAvailable READ sidetoneAvailable NOTIFY sidetoneChanged)
-    Q_PROPERTY(int sidetoneLevel READ sidetoneLevel WRITE setSidetoneLevel NOTIFY sidetoneChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QString sinkName READ sinkName NOTIFY outputChanged)
     Q_PROPERTY(QString sourceName READ sourceName NOTIFY micChanged)
@@ -46,8 +43,6 @@ public:
     bool micAvailable() const { return !m_sourceName.isEmpty(); }
     int micVolume() const { return m_micVolume; }
     bool micMuted() const { return m_micMuted; }
-    bool sidetoneAvailable() const { return m_alsaCard >= 0 && m_sidetoneLevel >= 0; }
-    int sidetoneLevel() const { return m_sidetoneLevel; }
     QString lastError() const { return m_lastError; }
     QString sinkName() const { return m_sinkName; }
     QString sourceName() const { return m_sourceName; }
@@ -61,7 +56,6 @@ public:
     void setOutputMuted(bool muted);
     void setMicVolume(int percent);
     void setMicMuted(bool muted);
-    void setSidetoneLevel(int percent);
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void makeDefaultOutput();
@@ -71,14 +65,12 @@ public:
         QString name;
         int volume = 0;
         bool muted = false;
-        int alsaCard = -1;
     };
     static std::optional<Endpoint> findHeadsetEndpoint(const QByteArray &pactlJson);
 
 signals:
     void outputChanged();
     void micChanged();
-    void sidetoneChanged();
     void lastErrorChanged();
     void defaultsChanged();
 
@@ -87,11 +79,9 @@ private:
     bool isHeadsetDefault() const;
     void startSubscription();
     void flushPending();
-    void refreshSidetone();
     void setLastError(const QString &error);
 
     QString m_pactl;
-    QString m_amixer;
     QProcess *m_subscription = nullptr;
     QTimer *m_refreshDebounce = nullptr;
     QTimer *m_writeDebounce = nullptr;
@@ -100,18 +90,15 @@ private:
     QString m_sourceName;
     QString m_defaultSink;
     QString m_defaultSource;
-    int m_alsaCard = -1;
 
     int m_outputVolume = 0;
     bool m_outputMuted = false;
     bool m_outputIsDefault = false;
     int m_micVolume = 0;
     bool m_micMuted = false;
-    int m_sidetoneLevel = -1;
 
     int m_pendingOutputVolume = -1;
     int m_pendingMicVolume = -1;
-    int m_pendingSidetone = -1;
 
     QString m_lastError;
 };

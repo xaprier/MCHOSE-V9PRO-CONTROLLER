@@ -198,7 +198,7 @@ yazılımda uygulanacak. Hub preload API isimleri (`electronAPI.*`) = tam özell
 | `AI_NR_Enable`, `NR_Enable` | Mikrofon AI gürültü azaltma | `libpipewire-module-echo-cancel` (webrtc NS) veya rnnoise LADSPA | P2 |
 | `Enable_MAGICVOICE`, `MagicVoice_Selection` | Ses değiştirici | pitch shift LADSPA (rubberband) — opsiyonel | P4 |
 | `XearSurround` (enable, mode, room) | Sanal surround | filter-chain `spatializer`/convolver + HRIR — opsiyonel | P3 |
-| `MicListen` (`MicListen.dll`) | Mikrofonu dinle (sidetone) | ALSA `PCM Playback Volume',1` (mono, 0..151) **olası donanım sidetone** — doğrulanacak; yoksa `pw-loopback` | P1 |
+| `MicListen` (`MicListen.dll`) | Mikrofonu dinle (sidetone) | PipeWire loopback (`v9pro_mic_monitor`). ALSA `'PCM',1` sidetone **DEĞİL** (2026-10-30: değeri >0 olunca kulaklık çıkışı kesiliyor, kendi sesin gelmiyor) | P1 |
 | `playTestSound` | Test sesi | `pw-play` / QtMultimedia | P3 |
 | Otomatik başlatma, tray | | XDG autostart + `QSystemTrayIcon` | P2 |
 
@@ -225,9 +225,9 @@ Gerçek PipeWire 1.6'da yüklendiği ve varsayılanların kapanışta geri dönd
 | Özellik | Düğüm | Not |
 |---|---|---|
 | EQ + bas/parlaklık/vokal + preamp | `v9pro_equalizer` (Audio/Sink) → kulaklık sink | builtin `bq_*` + `mixer`; açıkken default sink |
-| Gürültü engelleme | `v9pro_mic_denoised` (Audio/Source) | WebRTC (echo-cancel modülü) veya RNNoise LADSPA (kurulu değil) |
-| Mikrofon monitörü (yazılım) | `v9pro_mic_monitor` | mic → kulaklık sink, `mixer` kazancı, 128/48000 latency |
-| Mikrofon monitörü (donanım) | ALSA `'PCM',1` | Doğrulanmadı; monitör kapalıyken uygulama bunu 0'a çeker |
+| Gürültü engelleme | `v9pro_mic_denoised` (Audio/Source) | WebRTC (echo-cancel modülü) veya RNNoise LADSPA — RNNoise DOĞRULANDI 2026-10-30 |
+| Mikrofon monitörü | `v9pro_mic_monitor` | mic (gürültü engelleme açıksa `v9pro_mic_denoised`) → kulaklık sink, `mixer` kazancı (lineer), aktif capture, 128/48000 latency — DOĞRULANDI 2026-10-30 |
+| ~~Donanım monitörü~~ | ALSA `'PCM',1` | Sidetone değil, çıkışı bozuyor → kaldırıldı; uygulama artık dokunmuyor |
 
 EQ bant eşlemesi: Hub etiketleri 20/60/100/250/500/1k/2k/4k/8k/20k; uç bantlar raf filtre (32 Hz low-shelf,
 14 kHz high-shelf), diğerleri peaking. Bas = low-shelf @cutoff (level×1.2 dB), parlaklık = high-shelf 6 kHz

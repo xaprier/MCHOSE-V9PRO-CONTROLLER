@@ -30,7 +30,6 @@ MicMonitor::MicMonitor(AudioMixer *mixer, NoiseSuppressor *noiseSuppressor, QObj
     QSettings settings;
     m_enabled = settings.value(QStringLiteral("monitor/enabled"), false).toBool();
     m_level = settings.value(QStringLiteral("monitor/level"), 50).toInt();
-    m_mode = settings.value(QStringLiteral("monitor/mode"), int(Software)).toInt() == Hardware ? Hardware : Software;
 
     m_applyDebounce->setSingleShot(true);
     m_applyDebounce->setInterval(ApplyDebounceMs);
@@ -38,13 +37,6 @@ MicMonitor::MicMonitor(AudioMixer *mixer, NoiseSuppressor *noiseSuppressor, QObj
 
     connect(m_loopback, &PipeWireFilter::runningChanged, this, &MicMonitor::activeChanged);
     connect(m_loopback, &PipeWireFilter::errorOccurred, this, &MicMonitor::setError);
-    connect(m_mixer, &AudioMixer::sidetoneChanged, this, [this] {
-        if (hardwareAvailable() != m_hardwareWasAvailable) {
-            m_hardwareWasAvailable = hardwareAvailable();
-            emit availabilityChanged();
-            m_applyDebounce->start();
-        }
-    });
     auto endpointsChanged = [this] {
         if (monitoredSource() != m_loopbackSource || m_mixer->sinkName() != m_loopbackSink)
             m_applyDebounce->start();
@@ -72,28 +64,13 @@ void MicMonitor::setLevel(int level)
     m_level = level;
     save();
     emit levelChanged();
-    if (m_enabled && m_mode == Software && m_loopback->isRunning())
+    if (m_enabled && m_loopback->isRunning())
         m_loopback->setParams(v9::pw::micMonitorParams(loopbackGain(m_level)));
     else
         m_applyDebounce->start();
 }
 
-void MicMonitor::setMode(Mode mode)
-{
-    if (m_mode == mode)
-        return;
-    m_mode = mode;
-    save();
-    emit modeChanged();
-    apply();
-}
-
-bool MicMonitor::hardwareAvailable() const
-{
-    return m_mixer->sidetoneAvailable();
-}
-
-bool MicMonitor::softwareAvailable() const
+bool MicMonitor::available() const
 {
     return PipeWireFilter::isAvailable();
 }
@@ -102,24 +79,15 @@ bool MicMonitor::active() const
 {
     if (!m_enabled)
         return false;
-    return m_mode == Software ? m_loopback->isRunning() : hardwareAvailable();
+    return m_loopback->isRunning();
 }
 
 void MicMonitor::apply()
 {
     setError({});
-    const bool hardware = m_enabled && m_mode == Hardware;
-    const bool software = m_enabled && m_mode == Software;
-
-    // The hardware control is driven to 0 whenever it is not the active path, so the two never add up.
-    if (hardwareAvailable())
-        m_mixer->setSidetoneLevel(hardware ? m_level : 0);
-    else if (hardware)
-        setError(tr("Hardware monitor control not found; use the software monitor."));
-
     const QString source = monitoredSource();
     const QString sink = m_mixer->sinkName();
-    if (software && !source.isEmpty() && !sink.isEmpty()) {
+    if (m_enabled && !source.isEmpty() && !sink.isEmpty()) {
         if (!m_loopback->isRunning() || source != m_loopbackSource || sink != m_loopbackSink) {
             m_loopbackSource = source;
             m_loopbackSink = sink;
@@ -147,7 +115,6 @@ void MicMonitor::save() const
     QSettings settings;
     settings.setValue(QStringLiteral("monitor/enabled"), m_enabled);
     settings.setValue(QStringLiteral("monitor/level"), m_level);
-    settings.setValue(QStringLiteral("monitor/mode"), int(m_mode));
 }
 
 void MicMonitor::setError(const QString &error)

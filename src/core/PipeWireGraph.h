@@ -11,6 +11,8 @@
 #include <QStringList>
 #include <QVariantList>
 
+#include <functional>
+
 class QProcess;
 class QTimer;
 
@@ -66,7 +68,8 @@ private:
     void rebuild();
     void applyRules();
     void runLink(const QStringList &arguments);
-    void moveStreamsToDefault(const QString &streams, const QString &move, const QString &target);
+    void rerouteStreamsToDefault();
+    void runNextResetStep();
     QString positionKey(quint32 nodeId) const;
     void saveRules();
     void setError(const QString &error);
@@ -81,6 +84,13 @@ private:
     QHash<QString, QPointF> m_positions; // boxes the user moved, by position key; others are auto-laid out
     QList<v9::pw::LinkRule> m_rules;
     QSet<QString> m_attempted; // "out:in" port ids the restorer already tried
+    // pactl commands of a running reset, executed one after another.
+    struct ResetStep {
+        QStringList arguments;
+        std::function<void(const QByteArray &)> onOutput;
+    };
+    QList<ResetStep> m_resetQueue;
+    QString m_resetModuleId;
     bool m_restore = false;
     bool m_quitting = false;
     QString m_error;

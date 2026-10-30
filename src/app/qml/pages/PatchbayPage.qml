@@ -8,7 +8,7 @@ import V9Control
 
 // qjackctl-style graph of PipeWire audio: drag from a port to another to connect. A cable goes with
 // a middle click, Delete after selecting it, or its right-click menu; a middle click on a port drops
-// all of its cables. Empty space pans, the wheel zooms.
+// all of its cables. Empty space pans, the wheel zooms. Reset brings the default routing back.
 Item {
     id: root
 
@@ -24,8 +24,6 @@ Item {
     property int nodeRevision: 0
     // Keep everything in view until the user pans, zooms or moves a box; "Fit" turns it back on.
     property bool autoFit: true
-    // Links waiting for the "internal link" confirmation.
-    property var pendingDisconnect: []
 
     readonly property var nodeIndex: {
         const index = {}
@@ -91,16 +89,8 @@ Item {
         }
         return best
     }
-    // Disconnects right away unless one of the links belongs to this app's own chains.
     function requestDisconnect(links) {
         root.selectedLink = -1
-        if (links.length === 0)
-            return
-        if (links.some(l => l.internal)) {
-            root.pendingDisconnect = links
-            confirmDialog.open()
-            return
-        }
         for (const link of links)
             Patchbay.disconnectLink(link.id)
     }
@@ -455,22 +445,6 @@ Item {
             text: qsTr("Disconnect")
             onTriggered: root.requestDisconnect(root.linksOf(root.selectedLink))
         }
-    }
-
-    ConfirmDialog {
-        id: confirmDialog
-
-        title: qsTr("Disconnect an internal link?")
-        text: qsTr("This cable belongs to the equalizer, noise suppression or monitor chain. Removing it can silence the headset until that feature is toggled off and on.")
-        confirmText: qsTr("Disconnect")
-        destructive: true
-
-        onAccepted: {
-            for (const link of root.pendingDisconnect)
-                Patchbay.disconnectLink(link.id)
-            root.pendingDisconnect = []
-        }
-        onRejected: root.pendingDisconnect = []
     }
 
     ConfirmDialog {

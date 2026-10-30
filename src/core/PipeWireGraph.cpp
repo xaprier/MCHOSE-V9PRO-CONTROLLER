@@ -313,28 +313,65 @@ void PipeWireGraph::resetToDefaults()
     m_positions.clear();
     QSettings settings;
     settings.remove(PositionsGroup);
-    moveStreamsToDefault(QStringLiteral("sink-inputs"), QStringLiteral("move-sink-input"), QStringLiteral("@DEFAULT_SINK@"));
-    moveStreamsToDefault(QStringLiteral("source-outputs"), QStringLiteral("move-source-output"), QStringLiteral("@DEFAULT_SOURCE@"));
+    rerouteStreamsToDefault();
     rebuild();
 }
 
-void PipeWireGraph::moveStreamsToDefault(const QString &streams, const QString &move, const QString &target)
+void PipeWireGraph::rerouteStreamsToDefault()
 {
-    // A stream whose cable the user pulled has no link at all; moving it to the default makes the
-    // session manager link it again. Our own v9pro_* streams target their devices on purpose.
-    auto *list = new QProcess(this);
-    connect(list, &QProcess::finished, this, [this, list, move, target] {
-        list->deleteLater();
-        const QJsonArray entries = QJsonDocument::fromJson(list->readAllStandardOutput()).array();
-        for (const QJsonValue &entry : entries) {
-            if (entry[QStringLiteral("properties")][QStringLiteral("node.name")].toString().startsWith(QLatin1String("v9pro_")))
-                continue;
-            auto *process = new QProcess(this);
-            connect(process, &QProcess::finished, process, &QObject::deleteLater);
-            process->start(QStringLiteral("pactl"), {move, QString::number(entry[QStringLiteral("index")].toInteger()), target});
-        }
+    // Moving a stream to the device it is already assigned to is a no-op for the session manager,
+    // so a stream whose cables were pulled would stay unconnected. Parking every program stream on a
+    // throwaway sink and then moving it to the default makes WirePlumber link it afresh.
+    m_resetQueue.clear();
+    const auto queue = [this](QStringList arguments, std::function<void(const QByteArray &)> onOutput = {}) {
+        m_resetQueue.append({std::move(arguments), std::move(onOutput)});
+    };
+    const auto moveAll = [this, queue](const QString &list, const QString &move, const QString &park, const QString &target) {
+        queue({QStringLiteral("-f"), QStringLiteral("json"), QStringLiteral("list"), list}, [this, move, park, target](const QByteArray &out) {
+            const QJsonArray entries = QJsonDocument::fromJson(out).array();
+            QList<ResetStep> moves;
+            for (const QJsonValue &entry : entries) {
+                if (entry[QStringLiteral("properties")][QStringLiteral("node.name")].toString().startsWith(QLatin1String("v9pro_")))
+                    continue;
+                const QString index = QString::number(entry[QStringLiteral("index")].toInteger());
+                moves.append({{move, index, park}, {}});
+                moves.append({{move, index, target}, {}});
+            }
+            m_resetQueue = moves + m_resetQueue;
+        });
+    };
+
+    m_resetModuleId.clear();
+    queue({QStringLiteral("load-module"), QStringLiteral("module-null-sink"), QStringLiteral("sink_name=v9pro_reset_park")},
+          [this](const QByteArray &out) { m_resetModuleId = QString::fromUtf8(out).trimmed(); });
+    moveAll(QStringLiteral("sink-inputs"), QStringLiteral("move-sink-input"), QStringLiteral("v9pro_reset_park"), QStringLiteral("@DEFAULT_SINK@"));
+    moveAll(QStringLiteral("source-outputs"), QStringLiteral("move-source-output"), QStringLiteral("v9pro_reset_park.monitor"),
+            QStringLiteral("@DEFAULT_SOURCE@"));
+    // The unload step reads the id captured by the load step when it runs.
+    m_resetQueue.append({{QStringLiteral("unload-module")}, {}});
+    runNextResetStep();
+}
+
+void PipeWireGraph::runNextResetStep()
+{
+    if (m_resetQueue.isEmpty())
+        return;
+    ResetStep step = m_resetQueue.takeFirst();
+    if (step.arguments == QStringList{QStringLiteral("unload-module")}) {
+        if (m_resetModuleId.isEmpty())
+            return runNextResetStep();
+        step.arguments << m_resetModuleId;
+    }
+    auto *process = new QProcess(this);
+    connect(process, &QProcess::finished, this, [this, process, step](int exitCode, QProcess::ExitStatus status) {
+        process->deleteLater();
+        if (status != QProcess::NormalExit || exitCode != 0)
+            qCWarning(lcGraph) << "pactl" << step.arguments << "failed:" << process->readAllStandardError().trimmed();
+        else if (step.onOutput)
+            step.onOutput(process->readAllStandardOutput());
+        runNextResetStep();
     });
-    list->start(QStringLiteral("pactl"), {QStringLiteral("-f"), QStringLiteral("json"), QStringLiteral("list"), streams});
+    process->start(QStringLiteral("pactl"), step.arguments);
 }
 
 void PipeWireGraph::saveRules()

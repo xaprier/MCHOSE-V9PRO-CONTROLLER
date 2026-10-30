@@ -4,6 +4,12 @@ Unofficial Linux control application for the **MCHOSE V9 PRO** wireless headset
 (USB `291d:385d`). MCHOSE HUB has no Linux version and does not work under Wine; this app talks to
 the headset directly over hidraw and to PipeWire. No network access.
 
+## Screenshots
+
+| ![Home](screenshots/home.png)<br>**Home** | ![Equalizer](screenshots/equalizer.png)<br>**Equalizer** |
+|:---:|:---:|
+| ![Patchbay](screenshots/patchbay.png)<br>**Patchbay** | ![Soundboard](screenshots/soundboard.png)<br>**Soundboard** |
+
 ## Features
 
 - Battery level and charge state (live, including pushes from the headset)

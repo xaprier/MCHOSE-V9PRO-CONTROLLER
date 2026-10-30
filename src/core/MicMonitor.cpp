@@ -2,6 +2,7 @@
 
 #include "AudioMixer.h"
 #include "FilterChainConfig.h"
+#include "NoiseSuppressor.h"
 #include "PipeWireFilter.h"
 
 #include <QSettings>
@@ -13,16 +14,16 @@ constexpr int ApplyDebounceMs = 60;
 
 double loopbackGain(int level)
 {
-    // Perceived loudness is closer to quadratic; 100 % gives unity gain.
-    const double x = qBound(0, level, 100) / 100.0;
-    return x * x;
+    // Linear amplitude: 50 % is -6 dB. A squared curve left the useful range quiet.
+    return qBound(0, level, 100) / 100.0;
 }
 
 } // namespace
 
-MicMonitor::MicMonitor(AudioMixer *mixer, QObject *parent)
+MicMonitor::MicMonitor(AudioMixer *mixer, NoiseSuppressor *noiseSuppressor, QObject *parent)
     : QObject(parent)
     , m_mixer(mixer)
+    , m_noiseSuppressor(noiseSuppressor)
     , m_loopback(new PipeWireFilter(QStringLiteral("mic-monitor"), QStringLiteral("v9pro_mic_monitor_input"), this))
     , m_applyDebounce(new QTimer(this))
 {
@@ -45,11 +46,12 @@ MicMonitor::MicMonitor(AudioMixer *mixer, QObject *parent)
         }
     });
     auto endpointsChanged = [this] {
-        if (m_mixer->sourceName() != m_loopbackSource || m_mixer->sinkName() != m_loopbackSink)
+        if (monitoredSource() != m_loopbackSource || m_mixer->sinkName() != m_loopbackSink)
             m_applyDebounce->start();
     };
     connect(m_mixer, &AudioMixer::outputChanged, this, endpointsChanged);
     connect(m_mixer, &AudioMixer::micChanged, this, endpointsChanged);
+    connect(m_noiseSuppressor, &NoiseSuppressor::activeChanged, this, endpointsChanged);
 }
 
 void MicMonitor::setEnabled(bool enabled)
@@ -115,7 +117,7 @@ void MicMonitor::apply()
     else if (hardware)
         setError(tr("Hardware monitor control not found; use the software monitor."));
 
-    const QString source = m_mixer->sourceName();
+    const QString source = monitoredSource();
     const QString sink = m_mixer->sinkName();
     if (software && !source.isEmpty() && !sink.isEmpty()) {
         if (!m_loopback->isRunning() || source != m_loopbackSource || sink != m_loopbackSink) {
@@ -131,6 +133,13 @@ void MicMonitor::apply()
         m_loopbackSink.clear();
     }
     emit activeChanged();
+}
+
+QString MicMonitor::monitoredSource() const
+{
+    if (m_mixer->sourceName().isEmpty())
+        return {};
+    return m_noiseSuppressor->active() ? v9::pw::NoiseSourceName : m_mixer->sourceName();
 }
 
 void MicMonitor::save() const

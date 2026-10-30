@@ -209,7 +209,6 @@ QString micMonitorConfig(const QString &source, const QString &sink, double gain
       }
       capture.props = {
         node.name = "v9pro_mic_monitor_input"
-        node.passive = true
         node.latency = "128/48000"
         target.object = %2
       }
@@ -217,7 +216,6 @@ QString micMonitorConfig(const QString &source, const QString &sink, double gain
         node.name = %3
         node.latency = "128/48000"
         target.object = %4
-        media.role = Communication
       }
     }
   }

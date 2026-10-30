@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     AudioMixer mixer;
     EqualizerEngine equalizer(&mixer);
     NoiseSuppressor noiseSuppressor(&mixer);
-    MicMonitor monitor(&mixer);
+    MicMonitor monitor(&mixer, &noiseSuppressor);
     FirmwareManager firmware(&headset);
     ReportLogModel hidLog(&headset);
     HeadsetForeign::instance = &headset;

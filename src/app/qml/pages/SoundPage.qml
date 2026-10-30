@@ -166,7 +166,9 @@ ScrollView {
             Text {
                 text: Monitor.mode === Monitor.Hardware
                       ? qsTr("Hardware mode drives the dongle's secondary ALSA playback control, believed to be the chip's own mic monitor: no latency, but unverified. If you hear nothing, switch to Software.")
-                      : qsTr("Software mode loops the microphone into the headset through PipeWire (a few milliseconds of delay).")
+                      : NoiseSuppression.active
+                        ? qsTr("Software mode loops the noise-suppressed microphone into the headset, so you hear what others hear.")
+                        : qsTr("Software mode loops the microphone into the headset through PipeWire (a few milliseconds of delay).")
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall
                 wrapMode: Text.WordWrap

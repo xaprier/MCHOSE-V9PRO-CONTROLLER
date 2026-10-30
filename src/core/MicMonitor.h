@@ -4,6 +4,7 @@
 #include <QString>
 
 class AudioMixer;
+class NoiseSuppressor;
 class PipeWireFilter;
 class QTimer;
 
@@ -11,7 +12,8 @@ class QTimer;
 //  - Hardware: the dongle's secondary ALSA playback control ('PCM',1), believed to be the
 //    C-Media hardware mic monitor. Zero latency; unverified (docs/ANALYSIS.md §3).
 //  - Software: a PipeWire loopback from the headset mic into the headset sink. Always works,
-//    ~5-10 ms latency.
+//    ~5-10 ms latency. Listens to the noise-suppressed source while suppression is active, so
+//    you hear what others hear.
 class MicMonitor : public QObject
 {
     Q_OBJECT
@@ -31,7 +33,7 @@ public:
     };
     Q_ENUM(Mode)
 
-    explicit MicMonitor(AudioMixer *mixer, QObject *parent = nullptr);
+    explicit MicMonitor(AudioMixer *mixer, NoiseSuppressor *noiseSuppressor, QObject *parent = nullptr);
 
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled);
@@ -54,10 +56,12 @@ signals:
 
 private:
     void apply();
+    QString monitoredSource() const;
     void save() const;
     void setError(const QString &error);
 
     AudioMixer *m_mixer;
+    NoiseSuppressor *m_noiseSuppressor;
     PipeWireFilter *m_loopback;
     QTimer *m_applyDebounce;
     bool m_enabled = false;

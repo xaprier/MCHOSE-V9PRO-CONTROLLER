@@ -29,7 +29,7 @@ class HeadsetController : public QObject
     Q_PROPERTY(QString dongleFirmwareRaw READ dongleFirmwareRaw NOTIFY firmwareChanged)
     Q_PROPERTY(QString headsetFirmwareRaw READ headsetFirmwareRaw NOTIFY firmwareChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
-    // Untested on V9 PRO (docs/ANALYSIS.md §2.5); -1 until read successfully.
+    // Untested on V9 PRO; -1 until read successfully.
     Q_PROPERTY(int autoShutdown READ autoShutdown NOTIFY experimentalChanged)
     Q_PROPERTY(int promptVolume READ promptVolume NOTIFY experimentalChanged)
 

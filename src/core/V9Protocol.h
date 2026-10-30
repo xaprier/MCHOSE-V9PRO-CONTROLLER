@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <optional>
 
-// Byte layouts of the MCHOSE V9 PRO vendor HID protocol. See docs/ANALYSIS.md §2 for provenance
-// and verification status of each command. Everything here is pure so it can be unit tested.
+// Byte layouts of the MCHOSE V9 PRO vendor HID protocol. Everything here is pure so it can be unit
+// tested.
 namespace v9::protocol {
 
 inline constexpr std::uint16_t VendorId = 0x291D;
@@ -24,7 +24,7 @@ inline constexpr int ReportSize = 64;
 inline constexpr std::uint8_t CmdBattery = 0x65;
 inline constexpr std::uint8_t CmdModeQuery = 0x11;
 inline constexpr std::uint8_t CmdModeSet = 0x21;
-// Legacy settings family. Official for V9 TURBO; UNTESTED on V9 PRO (docs/ANALYSIS.md §2.5).
+// Legacy settings family. Official for V9 TURBO; UNTESTED on V9 PRO.
 inline constexpr std::uint8_t CmdLegacy = 0x22;
 
 enum class LegacyCommand : std::uint8_t {

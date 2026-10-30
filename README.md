@@ -20,8 +20,6 @@ the headset directly over hidraw and to PipeWire. No network access.
   straight to the tray, e.g. from autostart. Streams are moved back to the headset before quitting.
 - Lab: HID monitor and experimental headset settings
 
-See `docs/ANALYSIS.md` for the protocol and feature map.
-
 ## Build
 
 Requires Qt 6.8+ (Quick, QuickControls2, Widgets), CMake 3.21+, a C++20 compiler, and at runtime

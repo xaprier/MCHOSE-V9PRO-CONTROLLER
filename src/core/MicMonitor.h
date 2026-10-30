@@ -10,7 +10,7 @@ class QTimer;
 
 // Hear your own microphone in the headset through a PipeWire loopback (~5-10 ms latency). Listens
 // to the noise-suppressed source while suppression is active, so you hear what others hear. The
-// dongle has no working hardware monitor: ALSA 'PCM',1 cuts the headset output (docs/ANALYSIS.md §3).
+// dongle has no working hardware monitor: ALSA 'PCM',1 cuts the headset output.
 class MicMonitor : public QObject
 {
     Q_OBJECT

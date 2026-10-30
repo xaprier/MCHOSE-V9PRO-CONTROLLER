@@ -6,8 +6,9 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import V9Control
 
-// qjackctl-style graph of PipeWire audio: drag from a port to another to connect, click a cable and
-// press Delete (or right-click it) to disconnect. Empty space pans, the wheel zooms.
+// qjackctl-style graph of PipeWire audio: drag from a port to another to connect. A cable goes with
+// a middle click, Delete after selecting it, or its right-click menu; a middle click on a port drops
+// all of its cables. Empty space pans, the wheel zooms.
 Item {
     id: root
 
@@ -23,7 +24,8 @@ Item {
     property int nodeRevision: 0
     // Keep everything in view until the user pans, zooms or moves a box; "Fit" turns it back on.
     property bool autoFit: true
-    property var pendingDisconnect: null
+    // Links waiting for the "internal link" confirmation.
+    property var pendingDisconnect: []
 
     readonly property var nodeIndex: {
         const index = {}
@@ -89,17 +91,21 @@ Item {
         }
         return best
     }
-    function requestDisconnect(linkId) {
-        const link = Patchbay.links.find(l => l.id === linkId)
-        if (!link)
-            return
-        if (link.internal) {
-            root.pendingDisconnect = link
-            confirmDialog.open()
-        } else {
-            Patchbay.disconnectLink(linkId)
-        }
+    // Disconnects right away unless one of the links belongs to this app's own chains.
+    function requestDisconnect(links) {
         root.selectedLink = -1
+        if (links.length === 0)
+            return
+        if (links.some(l => l.internal)) {
+            root.pendingDisconnect = links
+            confirmDialog.open()
+            return
+        }
+        for (const link of links)
+            Patchbay.disconnectLink(link.id)
+    }
+    function linksOf(linkId) {
+        return Patchbay.links.filter(l => l.id === linkId)
     }
     function setZoom(value, anchor) {
         root.autoFit = false
@@ -130,7 +136,7 @@ Item {
     }
 
     focus: true
-    Keys.onDeletePressed: if (root.selectedLink >= 0) root.requestDisconnect(root.selectedLink)
+    Keys.onDeletePressed: root.requestDisconnect(root.linksOf(root.selectedLink))
     Keys.onEscapePressed: root.selectedLink = -1
 
     ColumnLayout {
@@ -170,6 +176,11 @@ Item {
                 text: "+"
                 Accessible.name: qsTr("Zoom in")
                 onClicked: root.setZoom(root.zoom * 1.2, Qt.point(viewport.width / 2, viewport.height / 2))
+            }
+            ActionButton {
+                text: qsTr("Reset")
+                enabled: Patchbay.available
+                onClicked: resetDialog.open()
             }
             ActionButton {
                 text: qsTr("Fit")
@@ -271,16 +282,22 @@ Item {
                 property bool panned: false
 
                 anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 cursorShape: pressed && panned ? Qt.ClosedHandCursor : Qt.ArrowCursor
 
                 onPressed: mouse => {
                     root.forceActiveFocus()
+                    if (mouse.button === Qt.MiddleButton) {
+                        root.requestDisconnect(root.linksOf(root.linkAt(canvas.mapFromItem(background, mouse.x, mouse.y))))
+                        return
+                    }
                     background.pressPoint = Qt.point(mouse.x, mouse.y)
                     background.canvasStart = Qt.point(canvas.x, canvas.y)
                     background.panned = false
                 }
                 onPositionChanged: mouse => {
+                    if (!(background.pressedButtons & (Qt.LeftButton | Qt.RightButton)))
+                        return
                     const dx = mouse.x - background.pressPoint.x
                     const dy = mouse.y - background.pressPoint.y
                     if (!background.panned && Math.hypot(dx, dy) < 4)
@@ -291,7 +308,7 @@ Item {
                     canvas.y = background.canvasStart.y + dy
                 }
                 onReleased: mouse => {
-                    if (background.panned)
+                    if (background.panned || mouse.button === Qt.MiddleButton)
                         return
                     root.selectedLink = root.linkAt(canvas.mapFromItem(background, mouse.x, mouse.y))
                     if (mouse.button === Qt.RightButton && root.selectedLink >= 0)
@@ -407,6 +424,7 @@ Item {
                             root.wireStart = Qt.point(output ? patchNode.x + patchNode.width : patchNode.x, y)
                             root.wireEnd = root.toCanvas(scenePoint)
                         }
+                        onPortCleared: portId => root.requestDisconnect(Patchbay.links.filter(l => l.outPort === portId || l.inPort === portId))
                         onWireMoved: scenePoint => root.wireEnd = root.toCanvas(scenePoint)
                         onWireEnded: scenePoint => {
                             const target = root.portAtCanvas(root.toCanvas(scenePoint))
@@ -428,34 +446,43 @@ Item {
         }
     }
 
-    Menu {
+    StyledMenu {
         id: linkMenu
 
         MenuItem {
             text: qsTr("Disconnect")
-            onTriggered: root.requestDisconnect(root.selectedLink)
+            onTriggered: root.requestDisconnect(root.linksOf(root.selectedLink))
         }
     }
 
-    Dialog {
+    ConfirmDialog {
         id: confirmDialog
 
-        anchors.centerIn: parent
-        modal: true
         title: qsTr("Disconnect an internal link?")
-        standardButtons: Dialog.Ok | Dialog.Cancel
-
-        Label {
-            text: qsTr("This cable belongs to the equalizer, noise suppression or monitor chain.\nRemoving it can silence the headset until that feature is toggled.")
-            wrapMode: Text.WordWrap
-        }
+        text: qsTr("This cable belongs to the equalizer, noise suppression or monitor chain. Removing it can silence the headset until that feature is toggled off and on.")
+        confirmText: qsTr("Disconnect")
+        destructive: true
 
         onAccepted: {
-            if (root.pendingDisconnect)
-                Patchbay.disconnectLink(root.pendingDisconnect.id)
-            root.pendingDisconnect = null
+            for (const link of root.pendingDisconnect)
+                Patchbay.disconnectLink(link.id)
+            root.pendingDisconnect = []
         }
-        onRejected: root.pendingDisconnect = null
+        onRejected: root.pendingDisconnect = []
+    }
+
+    ConfirmDialog {
+        id: resetDialog
+
+        title: qsTr("Reset the patchbay?")
+        text: qsTr("Removes every cable drawn by hand, forgets remembered links and box positions, and sends all programs back to the default output and input. The equalizer, noise suppression and monitor chains are kept.")
+        confirmText: qsTr("Reset")
+        destructive: true
+
+        onAccepted: {
+            Patchbay.resetToDefaults()
+            root.autoFit = true
+        }
     }
 
     Connections {

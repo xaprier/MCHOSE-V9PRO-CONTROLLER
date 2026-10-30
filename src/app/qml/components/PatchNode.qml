@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls.Basic
 import V9Control
 
 // One PipeWire node in the patchbay: inputs on the left edge, outputs on the right. Positions are
@@ -18,7 +19,7 @@ Rectangle {
     readonly property var inputs: node.inputs
     readonly property var outputs: node.outputs
     readonly property int rows: Math.max(inputs.length, outputs.length)
-    readonly property real headerHeight: 34
+    readonly property real headerHeight: 40
     readonly property real rowHeight: 22
     readonly property color tint: node.kind === "internal" ? Theme.accent
                                 : node.kind === "playback" ? Theme.info
@@ -28,6 +29,8 @@ Rectangle {
     signal wireMoved(point scenePoint)
     signal wireEnded(point scenePoint)
     signal moved(real x, real y)
+    // Middle click on a port: drop every cable on it.
+    signal portCleared(int portId)
 
     // Y of a port's dot relative to the box, or -1 when the port is not on this node.
     function portY(portId, output) {
@@ -64,23 +67,40 @@ Rectangle {
         radius: Theme.radiusSmall
         color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, 0.18)
 
-        Text {
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            text: root.node.label
-            color: Theme.text
-            font.pixelSize: Theme.fontSmall
-            font.weight: Font.DemiBold
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
+        Column {
+            anchors.verticalCenter: parent.verticalCenter
+            x: 10
+            width: parent.width - 20
+            spacing: 1
+
+            Text {
+                width: parent.width
+                text: root.node.label
+                color: Theme.text
+                font.pixelSize: Theme.fontSmall
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+            }
+            // Which tab or song a browser stream is playing.
+            Text {
+                visible: root.node.media.length > 0
+                width: parent.width
+                text: root.node.media
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSmall - 1
+                elide: Text.ElideRight
+            }
         }
+        ToolTip.visible: headerHover.hovered && root.node.media.length > 0
+        ToolTip.text: root.node.media
+        ToolTip.delay: 500
         DragHandler {
             target: root
             cursorShape: Qt.ClosedHandCursor
             onActiveChanged: if (!active) root.moved(root.x, root.y)
         }
         HoverHandler {
+            id: headerHover
             cursorShape: Qt.OpenHandCursor
         }
     }
@@ -142,13 +162,22 @@ Rectangle {
                         anchors.fill: parent
                         hoverEnabled: true
                         preventStealing: true
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         cursorShape: Qt.CrossCursor
-                        onPressed: mouse => root.wireStarted(port.modelData.id, port.output, port.mapToItem(null, mouse.x, mouse.y))
+                        onPressed: mouse => {
+                            if (mouse.button === Qt.MiddleButton)
+                                root.portCleared(port.modelData.id)
+                            else
+                                root.wireStarted(port.modelData.id, port.output, port.mapToItem(null, mouse.x, mouse.y))
+                        }
                         onPositionChanged: mouse => {
-                            if (pressed)
+                            if (pressedButtons & Qt.LeftButton)
                                 root.wireMoved(port.mapToItem(null, mouse.x, mouse.y))
                         }
-                        onReleased: mouse => root.wireEnded(port.mapToItem(null, mouse.x, mouse.y))
+                        onReleased: mouse => {
+                            if (mouse.button === Qt.LeftButton)
+                                root.wireEnded(port.mapToItem(null, mouse.x, mouse.y))
+                        }
                     }
                 }
             }

@@ -26,6 +26,7 @@ qt_add_qml_module(v9pro-control
         qml/Theme.qml
         qml/components/ActionButton.qml
         qml/components/BatteryRing.qml
+        qml/components/ConfirmDialog.qml
         qml/components/Card.qml
         qml/components/EqualizerGraph.qml
         qml/components/IconButton.qml
@@ -37,6 +38,7 @@ qt_add_qml_module(v9pro-control
         qml/components/SectionHeader.qml
         qml/components/SegmentedControl.qml
         qml/components/StatusPill.qml
+        qml/components/StyledMenu.qml
         qml/components/StyledComboBox.qml
         qml/components/StyledTextField.qml
         qml/components/ToggleSwitch.qml

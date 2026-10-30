@@ -6,11 +6,11 @@ Things that need the real headset and a human. Record results in `docs/ANALYSIS.
 Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=true"`).
 
 ## 1. Sound mode set (Dashboard)
-- [ ] Click Game 1 / Game 2 / Music; the tile stays selected (read-back) and the sound changes.
+- [x] Click Game 1 / Game 2 / Music; the tile stays selected (read-back) and the sound changes. (2026-10-30)
 - [ ] Press the mode button on the headset; the dashboard follows within a second (push report).
 
 ## 2. Mic button traffic (Lab → HID monitor)
-- [ ] Start capture, press the mic button 4–5 times, stop.
+- [x] Start capture, press the mic button 4–5 times, stop. (2026-10-30: no reports at all)
 - [ ] Any highlighted line? `TELEPHONY` (report 0x07) or an unknown 0x55 command means the button is
       visible to the host → we can sync it with the PipeWire mic mute. Nothing → confirms no USB traffic.
 - [ ] Save the capture next to the analysis if anything shows up.

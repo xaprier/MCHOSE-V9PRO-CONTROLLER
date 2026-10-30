@@ -63,7 +63,7 @@ state: 2=deşarj, 3=şarj oluyor, 4=dolu, 26(0x1A)=uykuda
 - Tek seferde tek istek: eşzamanlı istekler cevap düşürüyor (C# örneğindeki `_gate`). İlk istek
   boşta kaldıktan sonra bazen düşüyor → 1 tekrar + 250 ms bekleme.
 
-### 2.2 Ses modu (cihaz içi DSP preset) — okuma DOĞRULANDI
+### 2.2 Ses modu (cihaz içi DSP preset) — okuma + yazma DOĞRULANDI (2026-10-30)
 
 ```
 GET  TX 55 11                 -> RX 55 11 <mode>
@@ -73,6 +73,7 @@ NOTIFY: cihaz butonla mod değişince RX 55 11 <mode> gönderiyor
 ```
 
 - Linux probe: `55 11 02` → Music.
+- 2026-10-30: uygulamadan `55 21 01 <mode>` ile geçiş gerçek cihazda çalışıyor.
 - Bluetooth'ta HID kanal yok → sadece 2.4G'de.
 - Hub'da `setVoiceBroadcastState` (sesli bildirim aç/kapa) V9 PRO hook'unda **boş fonksiyon** —
   yani V9 PRO için resmi bir "prompt kapat" HID komutu yok. (G9 V2 ve K20 ailesinde `21 02 <0|1>` var,
@@ -160,13 +161,15 @@ cmdType: Request `00 01`, Set `00 02`, Notify `00 04`. Komutlar: `SET_EQ_MODE 1`
 `SET_PEQ_ALL_GAIN 18`, `SET_EQ_MODE_NAME 24`, `RESTORE_DEFAULT 25`, `SET_AUTO_SHUTDOWN 26`,
 `FACTORY_RESET 27`, `SET_PROMPT_VOLUME 33`. Referans için kayıtlı; V9 PRO için uygulanmayacak.
 
-### 2.7 Telephony / mikrofon butonu
+### 2.7 Telephony / mikrofon butonu — trafik YOK, DOĞRULANDI (2026-10-30)
 
 Uygulamada: Lab → "HID monitor". Polling (pil/mod) gizlenir, geri kalan her rapor vurgulanır.
 
 Descriptor'da telephony (Phone Mute 0x2F) input ve mute LED output var. C# yazarı mikrofon butonunun
-**hiç USB trafiği üretmediğini** söylüyor. Linux'ta `hidraw` dinleyerek tekrar doğrulanmalı
-(TODO, kullanıcı başındayken). Trafik varsa: sistem mikrofon mute'u ile buton senkronu yapılabilir.
+**hiç USB trafiği üretmediğini** söylüyor. 2026-10-30 Linux'ta doğrulandı: dongle'ın tek hidraw
+düğümü (`hidraw4`, 0xED/0xAA/0x06/0x07/0x55 hepsi aynı düğümde) mic on/off sırasında hiçbir rapor
+üretmiyor. Mute kulaklık içinde yapılıyor; host'tan görünmüyor → PipeWire mute ile buton senkronu
+HID üzerinden mümkün değil.
 
 ---
 

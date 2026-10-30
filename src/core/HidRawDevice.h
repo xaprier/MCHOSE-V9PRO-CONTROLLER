@@ -25,7 +25,9 @@ public:
     // Returns the hidraw node of the given device whose report descriptor declares `reportId`.
     static std::optional<QString> findNode(std::uint16_t vendorId, std::uint16_t productId, std::uint8_t reportId);
 
-    bool open(const QString &path);
+    // `watch` = deliver input through reportReceived on this object's thread. Without it the
+    // caller reads synchronously with readReport() (used by the flasher's worker thread).
+    bool open(const QString &path, bool watch = true);
     void close();
     bool isOpen() const { return m_fd >= 0; }
     QString path() const { return m_path; }
@@ -34,6 +36,8 @@ public:
     bool writeReport(const QByteArray &report);
     bool setFeature(const QByteArray &feature);
     std::optional<QByteArray> getFeature(std::uint8_t reportId, int length);
+    // Blocking read with timeout; only valid when opened with watch = false.
+    std::optional<QByteArray> readReport(int timeoutMs);
 
 signals:
     void reportReceived(const QByteArray &report);

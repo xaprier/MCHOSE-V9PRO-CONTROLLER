@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <linux/hidraw.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -52,7 +53,7 @@ std::optional<QString> HidRawDevice::findNode(std::uint16_t vendorId, std::uint1
     return std::nullopt;
 }
 
-bool HidRawDevice::open(const QString &path)
+bool HidRawDevice::open(const QString &path, bool watch)
 {
     close();
 
@@ -66,8 +67,10 @@ bool HidRawDevice::open(const QString &path)
 
     m_path = path;
     m_error.clear();
-    m_notifier = new QSocketNotifier(m_fd, QSocketNotifier::Read, this);
-    connect(m_notifier, &QSocketNotifier::activated, this, &HidRawDevice::onReadable);
+    if (watch) {
+        m_notifier = new QSocketNotifier(m_fd, QSocketNotifier::Read, this);
+        connect(m_notifier, &QSocketNotifier::activated, this, &HidRawDevice::onReadable);
+    }
     qCInfo(lcHid) << "opened" << path;
     return true;
 }
@@ -127,6 +130,27 @@ std::optional<QByteArray> HidRawDevice::getFeature(std::uint8_t reportId, int le
     }
     buffer.truncate(received);
     return buffer;
+}
+
+std::optional<QByteArray> HidRawDevice::readReport(int timeoutMs)
+{
+    if (m_fd < 0)
+        return std::nullopt;
+
+    pollfd pfd{m_fd, POLLIN, 0};
+    const int ready = ::poll(&pfd, 1, timeoutMs);
+    if (ready <= 0)
+        return std::nullopt;
+
+    char buffer[v9::protocol::ReportSize];
+    const ssize_t n = ::read(m_fd, buffer, sizeof buffer);
+    if (n <= 0) {
+        if (n < 0 && (errno == EAGAIN || errno == EINTR))
+            return std::nullopt;
+        fail(QStringLiteral("read"));
+        return std::nullopt;
+    }
+    return QByteArray(buffer, static_cast<qsizetype>(n));
 }
 
 void HidRawDevice::onReadable()

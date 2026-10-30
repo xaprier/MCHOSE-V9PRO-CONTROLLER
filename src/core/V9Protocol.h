@@ -15,6 +15,9 @@ inline constexpr std::uint16_t ProductId = 0x385D;
 
 inline constexpr std::uint8_t ControlReportId = 0x55;
 inline constexpr std::uint8_t FirmwareReportId = 0xAA;
+inline constexpr std::uint8_t OtaDataReportId = 0x41;
+inline constexpr std::uint8_t ConsumerReportId = 0x06;
+inline constexpr std::uint8_t TelephonyReportId = 0x07;
 
 // hidraw output/input reports are the report id followed by 63 payload bytes.
 inline constexpr int ReportSize = 64;
@@ -22,6 +25,26 @@ inline constexpr int ReportSize = 64;
 inline constexpr std::uint8_t CmdBattery = 0x65;
 inline constexpr std::uint8_t CmdModeQuery = 0x11;
 inline constexpr std::uint8_t CmdModeSet = 0x21;
+// Legacy settings family. Official for V9 TURBO; UNTESTED on V9 PRO (docs/ANALYSIS.md §2.5).
+inline constexpr std::uint8_t CmdLegacy = 0x22;
+inline constexpr std::uint8_t CmdOtaEnter = 0x55;
+inline constexpr int OtaChunkSize = 63;
+
+enum class LegacyCommand : std::uint8_t {
+    SetAutoShutdown = 0,
+    FactoryReset = 1,
+    GetAutoShutdown = 2,
+    SetPromptVolume = 3,
+    GetPromptVolume = 4,
+};
+
+enum class OtaEvent {
+    Ready,   // 55 02 01 00
+    Pause,   // 55 60 FF
+    Resume,  // 55 60 00
+    Success, // 55 01 01 00
+    Failure, // 55 01 00 00
+};
 
 enum class ChargeState : std::uint8_t {
     Unknown = 0,
@@ -64,6 +87,19 @@ QByteArray modeSetRequest(SoundMode mode);
 
 // Feature report buffer that selects which firmware version the next GET_FEATURE returns.
 QByteArray firmwareSelectFeature(FirmwareTarget target);
+
+QByteArray legacyRequest(LegacyCommand command, std::uint8_t value = 0);
+// Value byte of a legacy reply (55 22 <sub> <value>) answering `command`.
+std::optional<int> parseLegacyReply(const QByteArray &report, LegacyCommand command);
+
+// Enter update mode: 55 55 <target>, target 1 = headset, 0 = dongle.
+QByteArray otaEnterRequest(FirmwareTarget target);
+// One 0x41 data report carrying `chunk` (≤ 63 bytes, zero padded).
+QByteArray otaDataReport(QByteArrayView chunk);
+std::optional<OtaEvent> parseOtaEvent(const QByteArray &report);
+
+// Human readable decoding of any input report from the device, for the HID monitor.
+QString describeReport(const QByteArray &report);
 
 std::optional<BatteryInfo> parseBattery(const QByteArray &report);
 std::optional<SoundMode> parseMode(const QByteArray &report);

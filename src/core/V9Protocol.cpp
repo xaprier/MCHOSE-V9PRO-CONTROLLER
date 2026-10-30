@@ -1,5 +1,7 @@
 #include "V9Protocol.h"
 
+#include <algorithm>
+
 namespace v9::protocol {
 
 namespace {
@@ -38,6 +40,78 @@ QByteArray modeSetRequest(SoundMode mode)
 QByteArray firmwareSelectFeature(FirmwareTarget target)
 {
     return report({FirmwareReportId, 0x01, static_cast<std::uint8_t>(target)});
+}
+
+QByteArray legacyRequest(LegacyCommand command, std::uint8_t value)
+{
+    return report({ControlReportId, CmdLegacy, static_cast<std::uint8_t>(command), value});
+}
+
+std::optional<int> parseLegacyReply(const QByteArray &report, LegacyCommand command)
+{
+    if (report.size() < 4 || !isReply(report, CmdLegacy) || byteAt(report, 2) != static_cast<std::uint8_t>(command))
+        return std::nullopt;
+    return byteAt(report, 3);
+}
+
+QByteArray otaEnterRequest(FirmwareTarget target)
+{
+    return report({ControlReportId, CmdOtaEnter, target == FirmwareTarget::Headset ? std::uint8_t(1) : std::uint8_t(0)});
+}
+
+QByteArray otaDataReport(QByteArrayView chunk)
+{
+    QByteArray buffer(ReportSize, '\0');
+    buffer[0] = static_cast<char>(OtaDataReportId);
+    const qsizetype n = qMin<qsizetype>(chunk.size(), OtaChunkSize);
+    std::copy_n(chunk.data(), n, buffer.data() + 1);
+    return buffer;
+}
+
+std::optional<OtaEvent> parseOtaEvent(const QByteArray &report)
+{
+    if (report.size() < 4 || byteAt(report, 0) != ControlReportId)
+        return std::nullopt;
+    const std::uint8_t a = byteAt(report, 1);
+    const std::uint8_t b = byteAt(report, 2);
+    const std::uint8_t c = byteAt(report, 3);
+    if (a == 0x02 && b == 0x01 && c == 0x00)
+        return OtaEvent::Ready;
+    if (a == 0x60 && b == 0xFF)
+        return OtaEvent::Pause;
+    if (a == 0x60 && b == 0x00)
+        return OtaEvent::Resume;
+    if (a == 0x01 && c == 0x00 && (b == 0x01 || b == 0x00))
+        return b == 0x01 ? OtaEvent::Success : OtaEvent::Failure;
+    return std::nullopt;
+}
+
+QString describeReport(const QByteArray &report)
+{
+    if (report.isEmpty())
+        return {};
+    if (const auto battery = parseBattery(report))
+        return QStringLiteral("battery %1%, state %2").arg(battery->percent).arg(battery->rawState);
+    if (const auto mode = parseMode(report))
+        return QStringLiteral("sound mode %1").arg(static_cast<int>(*mode));
+    if (isReply(report, CmdLegacy) && report.size() >= 4)
+        return QStringLiteral("legacy 0x22 sub %1 value %2").arg(byteAt(report, 2)).arg(byteAt(report, 3));
+    if (const auto ota = parseOtaEvent(report)) {
+        static const char *names[] = {"ota ready", "ota pause", "ota resume", "ota success", "ota failure"};
+        return QString::fromLatin1(names[static_cast<int>(*ota)]);
+    }
+    switch (byteAt(report, 0)) {
+    case ConsumerReportId:
+        return QStringLiteral("consumer keys 0x%1").arg(report.size() > 1 ? byteAt(report, 1) : 0, 2, 16, QLatin1Char('0'));
+    case TelephonyReportId:
+        return QStringLiteral("TELEPHONY (hook/mute) 0x%1").arg(report.size() > 1 ? byteAt(report, 1) : 0, 2, 16, QLatin1Char('0'));
+    case 0xED:
+        return QStringLiteral("vendor 0xED");
+    case ControlReportId:
+        return QStringLiteral("unknown 0x55 command 0x%1").arg(report.size() > 1 ? byteAt(report, 1) : 0, 2, 16, QLatin1Char('0'));
+    default:
+        return QStringLiteral("report 0x%1").arg(byteAt(report, 0), 2, 16, QLatin1Char('0'));
+    }
 }
 
 bool isReply(const QByteArray &report, std::uint8_t command)

@@ -172,7 +172,7 @@ ScrollView {
         Card {
             visible: root.unlocked
             title: qsTr("Experimental headset settings")
-            subtitle: qsTr("Commands MCHOSE HUB uses for the V9 TURBO family (same chip). Untested on the V9 PRO: read first; if a read gets no reply, the firmware does not support it and writing is pointless.")
+            subtitle: qsTr("Commands MCHOSE HUB uses for the V9 TURBO family (same chip). Headset firmware 1015 does not answer either read, so they look unsupported on the V9 PRO; kept for other firmware versions. To silence the voice prompts use the firmware tool below.")
             Layout.fillWidth: true
 
             GridLayout {
@@ -322,7 +322,7 @@ ScrollView {
                         font.weight: Font.DemiBold
                     }
                     Text {
-                        text: qsTr("Untested on V9 PRO. May clear pairing and settings. Type RESET to enable.")
+                        text: qsTr("Same command family as above, which firmware 1015 ignores. May clear pairing and settings if it is supported. Type RESET to enable.")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSmall
                         wrapMode: Text.WordWrap

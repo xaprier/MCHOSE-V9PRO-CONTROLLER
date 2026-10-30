@@ -16,8 +16,8 @@ Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=
 - [ ] Save the capture next to the analysis if anything shows up.
 
 ## 3. Experimental settings (Lab)
-- [ ] Voice prompt volume → Read. Reply? Note the value. If yes, write 1, toggle the mic, listen; write back.
-- [ ] Auto power-off → Read. Reply? Note the raw value.
+- [x] (2026-10-30: no reply, unsupported) Voice prompt volume → Read. Reply? Note the value. If yes, write 1, toggle the mic, listen; write back.
+- [x] (2026-10-30: no reply, unsupported) Auto power-off → Read. Reply? Note the raw value.
 - [ ] Do NOT use factory reset unless we decide to.
 
 ## 4. Mic monitor (Sound)

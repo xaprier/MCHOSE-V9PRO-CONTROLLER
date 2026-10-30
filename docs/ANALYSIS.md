@@ -133,7 +133,11 @@ Result       : in 55 [01 01 00]=başarılı, [01 00 00]=başarısız
   2. Prompt volume komutu (§2.5) V9 PRO'da çalışırsa ses seviyesini 1'e çekmek.
   3. Ducking'in kendisi firmware `app.bin` içinde; kaldırmak için kod yaması gerekir (araştırma konusu).
 
-### 2.5 Legacy `0x22` alt komutları — V9 TURBO ailesi resmi, **V9 PRO'da TEST EDİLMEDİ**
+### 2.5 Legacy `0x22` alt komutları — V9 TURBO ailesi resmi, **V9 PRO'da DESTEKLENMİYOR** (2026-10-30)
+
+2026-10-30 gerçek cihaz (headset fw 1015, dongle 0012): `55 22 02` (auto-off oku) ve `55 22 04`
+(prompt volume oku) için **cevap yok**. Firmware bu alt komutları tanımıyor → set komutları da
+gönderilmeyecek. Bildirim sesini kapatmanın tek yolu firmware yaması (§2.4).
 
 Uygulamada: Lab sekmesi → "Experimental headset settings". Önce Read; okuma cevap verirse Write açılır.
 Cevaplar ham akıştan alt-komut eşleşmesiyle yakalanır (`55 22 <sub> <value>`).
@@ -166,7 +170,8 @@ cmdType: Request `00 01`, Set `00 02`, Notify `00 04`. Komutlar: `SET_EQ_MODE 1`
 Uygulamada: Lab → "HID monitor". Polling (pil/mod) gizlenir, geri kalan her rapor vurgulanır.
 
 Descriptor'da telephony (Phone Mute 0x2F) input ve mute LED output var. C# yazarı mikrofon butonunun
-**hiç USB trafiği üretmediğini** söylüyor. 2026-10-30 Linux'ta doğrulandı: dongle'ın tek hidraw
+**hiç USB trafiği üretmediğini** söylüyor. `alsactl monitor` da buton basışında değişiklik göstermiyor
+(mute tamamen donanımda). 2026-10-30 Linux'ta doğrulandı: dongle'ın tek hidraw
 düğümü (`hidraw4`, 0xED/0xAA/0x06/0x07/0x55 hepsi aynı düğümde) mic on/off sırasında hiçbir rapor
 üretmiyor. Mute kulaklık içinde yapılıyor; host'tan görünmüyor → PipeWire mute ile buton senkronu
 HID üzerinden mümkün değil.

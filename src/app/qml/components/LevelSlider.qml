@@ -12,7 +12,10 @@ RowLayout {
     property bool muted: false
     property bool mutable: true
     property int value: 0
+    property int from: 0
     property int to: 100
+    property int step: 1
+    property string suffix: "%"
     property bool available: true
 
     signal moved(int value)
@@ -23,6 +26,7 @@ RowLayout {
     opacity: available ? 1.0 : 0.45
 
     IconButton {
+        visible: root.icon.toString().length > 0
         text: root.muted ? qsTr("Unmute %1").arg(root.label) : qsTr("Mute %1").arg(root.label)
         icon.source: root.muted && root.mutedIcon.toString().length > 0 ? root.mutedIcon : root.icon
         tone: root.muted ? Theme.danger : Theme.text
@@ -45,7 +49,7 @@ RowLayout {
                 Layout.fillWidth: true
             }
             Text {
-                text: root.muted ? qsTr("Muted") : qsTr("%1%").arg(slider.pressed ? Math.round(slider.value) : root.value)
+                text: root.muted ? qsTr("Muted") : (slider.pressed ? Math.round(slider.value) : root.value) + root.suffix
                 color: root.muted ? Theme.danger : Theme.text
                 font.pixelSize: Theme.fontSmall
                 font.weight: Font.DemiBold
@@ -54,9 +58,9 @@ RowLayout {
 
         Slider {
             id: slider
-            from: 0
+            from: root.from
             to: root.to
-            stepSize: 1
+            stepSize: root.step
             value: root.value
             Layout.fillWidth: true
             Accessible.name: root.label

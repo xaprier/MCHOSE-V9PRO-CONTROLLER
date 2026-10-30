@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls.Basic
+import QtQuick.Controls
 import QtQuick.Layouts
 import V9Control
 
@@ -35,33 +35,17 @@ ScrollView {
                 Layout.fillWidth: true
 
                 Text {
-                    text: Mixer.outputIsDefault ? qsTr("The headset is the default output and input.") : qsTr("Another device is the default output.")
+                    text: Mixer.outputIsDefault ? qsTr("The headset is the default output.") : qsTr("Another device is the default output.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSmall
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
-                Button {
-                    id: defaultButton
+                ActionButton {
                     text: qsTr("Make default")
+                    kind: "primary"
                     visible: Mixer.outputAvailable && !Mixer.outputIsDefault
                     onClicked: Mixer.makeDefaultOutput()
-
-                    contentItem: Text {
-                        text: defaultButton.text
-                        color: Theme.text
-                        font.pixelSize: Theme.fontBody
-                        font.weight: Font.DemiBold
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        implicitWidth: 120
-                        implicitHeight: 34
-                        radius: Theme.radius
-                        color: defaultButton.down ? Theme.accent : Theme.accentSoft
-                        border.color: Theme.accent
-                    }
                 }
             }
         }
@@ -86,18 +70,115 @@ ScrollView {
         }
 
         Card {
-            title: qsTr("Sidetone")
-            subtitle: qsTr("Hear your own voice in the headset. Uses the dongle's secondary ALSA playback control, which is believed to be the hardware mic monitor (unverified).")
+            title: qsTr("Noise suppression")
+            subtitle: qsTr("Creates a cleaned-up microphone (\"V9 PRO Microphone (noise suppressed)\") and makes it the default input while enabled. Replaces Hub's AI noise reduction.")
             Layout.fillWidth: true
 
+            RowLayout {
+                spacing: Theme.spacing
+                Layout.fillWidth: true
+
+                ToggleSwitch {
+                    text: NoiseSuppression.active ? qsTr("On") : qsTr("Off")
+                    checked: NoiseSuppression.enabled
+                    enabled: NoiseSuppression.available && Mixer.micAvailable
+                    onToggled: NoiseSuppression.enabled = checked
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                SegmentedControl {
+                    value: NoiseSuppression.engine
+                    options: [
+                        { text: qsTr("WebRTC"), value: NoiseSuppression.WebRtc },
+                        { text: qsTr("RNNoise (AI)"), value: NoiseSuppression.RNNoise, enabled: NoiseSuppression.rnnoiseAvailable }
+                    ]
+                    onActivated: value => NoiseSuppression.engine = value
+                }
+            }
+
             LevelSlider {
-                label: qsTr("Sidetone level")
+                visible: NoiseSuppression.engine === NoiseSuppression.RNNoise
+                label: qsTr("Voice detection threshold")
+                value: NoiseSuppression.vadThreshold
+                to: 99
+                mutable: false
+                Layout.fillWidth: true
+                onMoved: value => NoiseSuppression.vadThreshold = value
+            }
+
+            Text {
+                visible: !NoiseSuppression.rnnoiseAvailable
+                text: qsTr("RNNoise needs the LADSPA plugin from noise-suppression-for-voice (Arch: noise-suppression-for-voice).")
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                visible: NoiseSuppression.error.length > 0
+                text: NoiseSuppression.error
+                color: Theme.danger
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
+
+        Card {
+            title: qsTr("Microphone monitor")
+            subtitle: qsTr("Hear your own voice in the headset while you talk.")
+            Layout.fillWidth: true
+
+            RowLayout {
+                spacing: Theme.spacing
+                Layout.fillWidth: true
+
+                ToggleSwitch {
+                    text: Monitor.active ? qsTr("On") : qsTr("Off")
+                    checked: Monitor.enabled
+                    enabled: Mixer.micAvailable && Mixer.outputAvailable
+                    onToggled: Monitor.enabled = checked
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                SegmentedControl {
+                    value: Monitor.mode
+                    options: [
+                        { text: qsTr("Software"), value: Monitor.Software, enabled: Monitor.softwareAvailable },
+                        { text: qsTr("Hardware (experimental)"), value: Monitor.Hardware, enabled: Monitor.hardwareAvailable }
+                    ]
+                    onActivated: value => Monitor.mode = value
+                }
+            }
+
+            LevelSlider {
+                label: qsTr("Monitor level")
                 icon: "../icons/headset.svg"
                 mutable: false
-                available: Mixer.sidetoneAvailable
-                value: Math.max(0, Mixer.sidetoneLevel)
+                available: Monitor.enabled
+                value: Monitor.level
                 Layout.fillWidth: true
-                onMoved: value => Mixer.sidetoneLevel = value
+                onMoved: value => Monitor.level = value
+            }
+
+            Text {
+                text: Monitor.mode === Monitor.Hardware
+                      ? qsTr("Hardware mode drives the dongle's secondary ALSA playback control, believed to be the chip's own mic monitor: no latency, but unverified. If you hear nothing, switch to Software.")
+                      : qsTr("Software mode loops the microphone into the headset through PipeWire (a few milliseconds of delay).")
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                visible: Monitor.error.length > 0
+                text: Monitor.error
+                color: Theme.danger
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
             }
         }
     }

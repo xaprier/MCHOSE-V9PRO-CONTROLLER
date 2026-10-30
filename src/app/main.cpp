@@ -31,8 +31,18 @@ int main(int argc, char *argv[])
 
     HeadsetController headset;
     AudioMixer mixer;
+    EqualizerEngine equalizer(&mixer);
+    NoiseSuppressor noiseSuppressor(&mixer);
+    MicMonitor monitor(&mixer);
+    FirmwareManager firmware(&headset);
+    ReportLogModel hidLog(&headset);
     HeadsetForeign::instance = &headset;
-    AudioMixerForeign::instance = &mixer;
+    MixerForeign::instance = &mixer;
+    EqualizerForeign::instance = &equalizer;
+    NoiseSuppressionForeign::instance = &noiseSuppressor;
+    MonitorForeign::instance = &monitor;
+    FirmwareForeign::instance = &firmware;
+    HidLogForeign::instance = &hidLog;
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 

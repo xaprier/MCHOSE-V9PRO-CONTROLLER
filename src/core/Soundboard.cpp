@@ -153,52 +153,80 @@ void Soundboard::refresh()
 
 void Soundboard::toggle(const QString &name)
 {
-    if (auto *running = m_playing.value(name)) {
-        running->terminate();
-        return;
-    }
-    if (!active())
+    const bool wasPlaying = m_current == name;
+    stopAll();
+    if (wasPlaying || !active())
         return;
     // Only plain file names from the listed folder; nothing that could step out of it.
     if (!m_sounds.contains(name) || name.contains(QLatin1Char('/')))
         return;
     const QString path = QDir(m_folder).absoluteFilePath(name);
-    if (!QFileInfo(path).isFile())
-        return;
+    if (QFileInfo(path).isFile())
+        start(name, path);
+}
 
-    auto *process = new QProcess(this);
-    m_playing.insert(name, process);
-    connect(process, &QProcess::finished, this, [this, process, name] {
-        if (m_playing.value(name) == process) {
-            m_playing.remove(name);
-            emit playingChanged();
-        }
-        process->deleteLater();
-    });
-    connect(process, &QProcess::errorOccurred, this, [this, process, name](QProcess::ProcessError error) {
+void Soundboard::start(const QString &name, const QString &path)
+{
+    const QString volume = QString::number(m_volume / 100.0, 'f', 2);
+    m_player = new QProcess(this);
+    if (!QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty()) {
+        // Mono at the graph rate, matching the sink, so pw-cat has nothing left to convert.
+        m_decoder = new QProcess(this);
+        m_decoder->setStandardOutputProcess(m_player);
+        m_decoder->setProcessChannelMode(QProcess::SeparateChannels);
+        m_decoder->start(QStringLiteral("ffmpeg"), {QStringLiteral("-nostdin"), QStringLiteral("-loglevel"), QStringLiteral("error"),
+                                                     QStringLiteral("-i"), path, QStringLiteral("-f"), QStringLiteral("s16le"),
+                                                     QStringLiteral("-ac"), QStringLiteral("1"), QStringLiteral("-ar"), QStringLiteral("48000"),
+                                                     QStringLiteral("-")});
+        m_player->setProgram(QStringLiteral("pw-cat"));
+        m_player->setArguments({QStringLiteral("--playback"), QStringLiteral("--raw"), QStringLiteral("--target"), pw::SoundboardSinkName,
+                                QStringLiteral("--format"), QStringLiteral("s16"), QStringLiteral("--rate"), QStringLiteral("48000"),
+                                QStringLiteral("--channels"), QStringLiteral("1"), QStringLiteral("--volume"), volume, QStringLiteral("-")});
+    } else {
+        m_player->setProgram(QStringLiteral("pw-play"));
+        m_player->setArguments({QStringLiteral("--target"), pw::SoundboardSinkName, QStringLiteral("--volume"), volume,
+                                QStringLiteral("--"), path});
+    }
+    QProcess *player = m_player;
+    connect(player, &QProcess::finished, this, [this, player] { finish(player); });
+    connect(player, &QProcess::errorOccurred, this, [this, player](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart)
             return;
-        setError(tr("Could not start pw-play"));
-        m_playing.remove(name);
-        emit playingChanged();
-        process->deleteLater();
+        setError(tr("Could not start %1").arg(player->program()));
+        finish(player);
     });
-    process->start(QStringLiteral("pw-play"), {QStringLiteral("--target"), pw::SoundboardSinkName, QStringLiteral("--volume"),
-                                                QString::number(m_volume / 100.0, 'f', 2), QStringLiteral("--"), path});
+    m_current = name;
+    m_player->start();
     emit playingChanged();
+}
+
+void Soundboard::finish(QProcess *player)
+{
+    // A replaced sound's player may report in after the new one started; it is no longer current.
+    if (player != m_player) {
+        player->deleteLater();
+        return;
+    }
+    stopAll();
 }
 
 void Soundboard::stopAll()
 {
-    const QList<QProcess *> processes = m_playing.values();
-    m_playing.clear();
-    for (QProcess *process : processes) {
+    const bool wasPlaying = !m_current.isEmpty();
+    m_current.clear();
+    for (QProcess *process : {m_decoder, m_player}) {
+        if (!process)
+            continue;
         process->disconnect(this);
-        process->kill();
-        process->waitForFinished(200);
+        if (process->state() != QProcess::NotRunning) {
+            process->kill();
+            process->waitForFinished(200);
+        }
         process->deleteLater();
     }
-    if (!processes.isEmpty())
+    m_decoder = nullptr;
+    m_player = nullptr;
+    if (wasPlaying)
         emit playingChanged();
 }
 

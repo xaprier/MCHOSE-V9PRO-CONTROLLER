@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QHash>
 #include <QObject>
 #include <QStringList>
 #include <QUrl>
@@ -10,7 +9,8 @@ class PipeWireFilter;
 class QFileSystemWatcher;
 class QProcess;
 
-// Plays sound files from a folder into a virtual "V9 PRO Soundboard" sink. While it runs, the
+// Plays sound files from a folder, one at a time, into a virtual "V9 PRO Soundboard" sink. Starting a
+// sound while another plays replaces it. While the sink runs, the
 // patchbay graph links that sink's monitor into every program recording a microphone, so the
 // sounds reach the call untouched by noise suppression. Optionally the sounds also play in the
 // headset ("listen").
@@ -40,7 +40,7 @@ public:
     bool active() const;
     QString folder() const { return m_folder; }
     QStringList sounds() const { return m_sounds; }
-    QStringList playing() const { return m_playing.keys(); }
+    QStringList playing() const { return m_current.isEmpty() ? QStringList() : QStringList{m_current}; }
     int volume() const { return m_volume; }
     void setVolume(int volume);
     bool listen() const { return m_listen; }
@@ -48,7 +48,8 @@ public:
     QString error() const { return m_error; }
 
     Q_INVOKABLE void setFolderUrl(const QUrl &url);
-    // Starts `name` (a file name from `sounds`), or stops it when it is already playing.
+    // Starts `name` (a file name from `sounds`), replacing whatever plays; stops it when it is the one
+    // already playing.
     Q_INVOKABLE void toggle(const QString &name);
     Q_INVOKABLE void stopAll();
     Q_INVOKABLE void refresh();
@@ -67,6 +68,8 @@ private:
     void apply();
     void setFolder(const QString &folder);
     void setError(const QString &error);
+    void start(const QString &name, const QString &path);
+    void finish(QProcess *player);
 
     AudioMixer *m_mixer;
     PipeWireFilter *m_sink;
@@ -75,7 +78,11 @@ private:
     bool m_enabled = false;
     QString m_folder;
     QStringList m_sounds;
-    QHash<QString, QProcess *> m_playing;
+    // ffmpeg decodes (every format, unlike libsndfile, which cuts Ogg Opus short) into pw-cat; without
+    // ffmpeg pw-play reads the file itself and m_decoder stays null.
+    QString m_current;
+    QProcess *m_decoder = nullptr;
+    QProcess *m_player = nullptr;
     int m_volume = 80;
     bool m_listen = true;
     QString m_error;

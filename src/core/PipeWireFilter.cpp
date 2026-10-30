@@ -2,14 +2,19 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimer>
 
+#include <optional>
 #include <utility>
+
+#include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcPipeWire, "v9.pipewire")
 
@@ -39,12 +44,24 @@ context.modules = [
     return text.replace(QStringLiteral("context.modules = ["), preamble);
 }
 
-QString runtimeDir()
+// Private per-user directory for the generated configs. `pipewire -c` loads whatever modules a
+// config names, so the file must not be reachable by other users: no shared /tmp fallback, mode
+// 0700, owned by us and not a symlink.
+std::optional<QString> runtimeDir()
 {
-    QString base = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
     if (base.isEmpty())
-        base = QDir::tempPath();
-    return base + QStringLiteral("/v9pro-control");
+        return std::nullopt;
+
+    const QString dir = base + QStringLiteral("/v9pro-control");
+    if (!QFileInfo::exists(dir) && !QDir().mkpath(dir))
+        return std::nullopt;
+    QFile::setPermissions(dir, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+    const QFileInfo info(dir);
+    if (info.isSymLink() || !info.isDir() || info.ownerId() != ::getuid())
+        return std::nullopt;
+    return dir;
 }
 
 } // namespace
@@ -80,16 +97,21 @@ void PipeWireFilter::start(const QString &config)
 {
     stop();
 
-    QDir().mkpath(runtimeDir());
-    m_configPath = runtimeDir() + QLatin1Char('/') + m_id + QStringLiteral(".conf");
-    QFile file(m_configPath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    const auto dir = runtimeDir();
+    if (!dir) {
+        m_error = tr("No private runtime directory (XDG_RUNTIME_DIR) for the PipeWire config");
+        emit errorOccurred(m_error);
+        return;
+    }
+    m_configPath = *dir + QLatin1Char('/') + m_id + QStringLiteral(".conf");
+    // QSaveFile writes a fresh temporary file and renames it over the target, so a planted
+    // symlink at the final path is replaced rather than followed.
+    QSaveFile file(m_configPath);
+    if (!file.open(QIODevice::WriteOnly) || file.write(standalone(config).toUtf8()) < 0 || !file.commit()) {
         m_error = tr("Cannot write %1").arg(m_configPath);
         emit errorOccurred(m_error);
         return;
     }
-    file.write(standalone(config).toUtf8());
-    file.close();
 
     m_process = new QProcess(this);
     m_process->setProcessChannelMode(QProcess::MergedChannels);

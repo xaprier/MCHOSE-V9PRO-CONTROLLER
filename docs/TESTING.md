@@ -1,0 +1,46 @@
+# Hardware test checklist
+
+Things that need the real headset and a human. Record results in `docs/ANALYSIS.md` (DOĞRULANDI /
+çalışmıyor + date).
+
+Run: `./build/src/app/v9pro-control` (debug logs: `QT_LOGGING_RULES="v9.*.debug=true"`).
+
+## 1. Sound mode set (Dashboard)
+- [ ] Click Game 1 / Game 2 / Music; the tile stays selected (read-back) and the sound changes.
+- [ ] Press the mode button on the headset; the dashboard follows within a second (push report).
+
+## 2. Mic button traffic (Lab → HID monitor)
+- [ ] Start capture, press the mic button 4–5 times, stop.
+- [ ] Any highlighted line? `TELEPHONY` (report 0x07) or an unknown 0x55 command means the button is
+      visible to the host → we can sync it with the PipeWire mic mute. Nothing → confirms no USB traffic.
+- [ ] Save the capture next to the analysis if anything shows up.
+
+## 3. Experimental settings (Lab)
+- [ ] Voice prompt volume → Read. Reply? Note the value. If yes, write 1, toggle the mic, listen; write back.
+- [ ] Auto power-off → Read. Reply? Note the raw value.
+- [ ] Do NOT use factory reset unless we decide to.
+
+## 4. Mic monitor (Sound)
+- [ ] Software mode on, level 50 %: you hear yourself with small delay.
+- [ ] Hardware mode on: do you hear yourself? Does the level slider change it? (Decides whether
+      ALSA 'PCM',1 really is sidetone.)
+
+## 5. Noise suppression (Sound)
+- [ ] Enable; default input becomes "V9 PRO Microphone (noise suppressed)". Record a test in any app
+      with a fan/keyboard noise, compare on/off.
+- [ ] Optional: install `noise-suppression-for-voice`, restart, try RNNoise.
+
+## 6. Equalizer
+- [ ] Enable; default output becomes "V9 PRO Equalizer"; audio keeps playing.
+- [ ] Drag points / sliders while music plays: change is immediate, no dropouts.
+- [ ] Bass / brightening / vocal clarity audible; auto preamp prevents clipping at +10 dB boosts.
+- [ ] Import a Hub-exported profile JSON; export and re-import.
+- [ ] Disable; default output returns to the headset.
+
+## 7. Voice prompt silencer (Lab) — last, only after 1–6
+1. [ ] Download English (or open your own stock `.bin`). Expect "English prompts · 18 clips", 8 and 9 preselected.
+2. [ ] Headset charged (>50 %), on, next to the dongle.
+3. [ ] Type FLASH → "Flash no-op (test)". Expect READY, progress to 100 %, "Firmware accepted", headset reboots,
+       still works, firmware version unchanged (Device page).
+4. [ ] Build patched image → type FLASH → "Flash patched". After reboot, toggle the mic: no voice.
+5. [ ] If anything is off: "Restore stock" (same flow) or MCHOSE's official OTA.

@@ -37,18 +37,27 @@ ScrollView {
                 Layout.preferredWidth: 280
                 Layout.fillHeight: true
 
-                BatteryRing {
-                    percent: root.online || Headset.chargeState === Headset.Asleep ? Headset.batteryPercent : -1
-                    charging: Headset.chargeState === Headset.Charging
-                    caption: root.chargeCaption
-                    Layout.alignment: Qt.AlignHCenter
+                // Centred inside a full-width holder: the ring's own Layout.alignment is not
+                // honoured when the card's body column is narrower than the card.
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: ring.implicitHeight
+
+                    BatteryRing {
+                        id: ring
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        percent: root.online || Headset.chargeState === Headset.Asleep ? Headset.batteryPercent : -1
+                        charging: Headset.chargeState === Headset.Charging
+                        caption: root.chargeCaption
+                    }
                 }
                 Text {
                     visible: Headset.lastBatteryUpdate.getTime() > 0
                     text: qsTr("Updated %1").arg(Qt.formatTime(Headset.lastBatteryUpdate, "HH:mm:ss"))
                     color: Theme.textFaint
                     font.pixelSize: Theme.fontSmall
-                    Layout.alignment: Qt.AlignHCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
                 }
             }
 
@@ -148,6 +157,35 @@ ScrollView {
                     ButtonGroup.group: modeGroup
                     Layout.fillWidth: true
                     onClicked: Headset.soundMode = Headset.Music
+                }
+            }
+        }
+
+        Card {
+            title: qsTr("Quick toggles")
+            subtitle: qsTr("Software features running in PipeWire. Details on the Sound and Equalizer pages.")
+            Layout.fillWidth: true
+
+            Flow {
+                spacing: 28
+                Layout.fillWidth: true
+
+                ToggleSwitch {
+                    text: qsTr("Equalizer")
+                    checked: Equalizer.enabled
+                    enabled: Equalizer.available
+                    onToggled: Equalizer.enabled = checked
+                }
+                ToggleSwitch {
+                    text: qsTr("Noise suppression")
+                    checked: NoiseSuppression.enabled
+                    enabled: NoiseSuppression.available
+                    onToggled: NoiseSuppression.enabled = checked
+                }
+                ToggleSwitch {
+                    text: qsTr("Mic monitor")
+                    checked: Monitor.enabled
+                    onToggled: Monitor.enabled = checked
                 }
             }
         }

@@ -106,6 +106,16 @@ private slots:
         QVERIFY(!state.apply(parse(R"([{"id":999,"info":null}])")));
     }
 
+    void portBeforeNodeIsKept()
+    {
+        pw::GraphState state;
+        state.apply(parse(R"([{"id":5,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":4,"port.name":"output_FL"}}}])"));
+        QVERIFY(state.ports().isEmpty());
+        state.apply(parse(R"([{"id":4,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"late","media.class":"Stream/Output/Audio"}}}])"));
+        QCOMPARE(state.ports().size(), 1);
+        QCOMPARE(state.ports().value(5).nodeId, 4u);
+    }
+
     void internalNodesFlagged()
     {
         pw::GraphState state;

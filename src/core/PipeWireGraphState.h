@@ -68,7 +68,9 @@ private:
     QHash<quint32, GraphNode> m_nodes;
     QHash<quint32, GraphPort> m_ports;
     QHash<quint32, GraphLink> m_links;
-    // Links whose ports are not known (yet, or because they are MIDI/video); kept for later updates.
+    // Ports whose node is not known (yet, or because it is not audio) and links whose ports are not
+    // known; kept until a later update resolves them or removes them.
+    QHash<quint32, GraphPort> m_pendingPorts;
     QHash<quint32, GraphLink> m_pendingLinks;
 };
 

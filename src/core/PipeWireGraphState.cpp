@@ -93,18 +93,14 @@ bool GraphState::apply(const QJsonArray &objects)
             if (props.value(QStringLiteral("format.dsp")).toString().contains(QLatin1String("midi"), Qt::CaseInsensitive))
                 continue;
             const auto nodeId = static_cast<quint32>(props.value(QStringLiteral("node.id")).toInteger());
-            if (!m_nodes.contains(nodeId))
-                continue;
             GraphPort port;
             port.id = id;
             port.nodeId = nodeId;
             port.name = shortPortName(props.value(QStringLiteral("port.name")).toString());
             port.output = info.value(QStringLiteral("direction")).toString() == QLatin1String("output");
             port.monitor = props.value(QStringLiteral("port.monitor")).toBool();
-            if (!m_ports.contains(id)) {
-                m_ports.insert(id, port);
-                changed = true;
-            }
+            if (!m_ports.contains(id))
+                m_pendingPorts.insert(id, port);
         } else if (type.endsWith(QLatin1String(":Link"))) {
             GraphLink link;
             link.id = id;
@@ -121,6 +117,15 @@ bool GraphState::apply(const QJsonArray &objects)
 bool GraphState::resolvePending()
 {
     bool changed = false;
+    for (auto it = m_pendingPorts.begin(); it != m_pendingPorts.end();) {
+        if (m_nodes.contains(it->nodeId)) {
+            m_ports.insert(it.key(), *it);
+            it = m_pendingPorts.erase(it);
+            changed = true;
+        } else {
+            ++it;
+        }
+    }
     for (auto it = m_pendingLinks.begin(); it != m_pendingLinks.end();) {
         if (m_ports.contains(it->outPort) && m_ports.contains(it->inPort)) {
             m_links.insert(it.key(), *it);
@@ -136,6 +141,7 @@ bool GraphState::resolvePending()
 bool GraphState::remove(quint32 id)
 {
     m_pendingLinks.remove(id);
+    m_pendingPorts.remove(id);
     if (m_links.remove(id))
         return true;
     if (m_ports.contains(id)) {
@@ -162,6 +168,7 @@ void GraphState::clear()
     m_nodes.clear();
     m_ports.clear();
     m_links.clear();
+    m_pendingPorts.clear();
     m_pendingLinks.clear();
 }
 

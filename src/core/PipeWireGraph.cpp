@@ -19,7 +19,7 @@ constexpr int RebuildDebounceMs = 50;
 constexpr int RestoreDebounceMs = 300;
 constexpr int DumpRestartMs = 2000;
 
-// Auto-layout: three columns, boxes stacked top to bottom.
+// Auto-layout: four columns, boxes stacked top to bottom.
 constexpr qreal ColumnWidth = 320;
 constexpr qreal BoxGap = 24;
 constexpr qreal HeaderHeight = 34;
@@ -40,13 +40,16 @@ QString kindOf(const pw::GraphNode &node)
     return QStringLiteral("device");
 }
 
-// Sound comes from the left column, is processed in the middle, and ends on the right.
+// Sound flows left to right: players and microphones, our filters, output devices, recorders
+// (which often read a sink's monitor, so they sit right of the devices).
 int columnOf(const pw::GraphNode &node)
 {
     if (node.internal)
         return 1;
     if (node.mediaClass.startsWith(QLatin1String("Stream/Output")) || node.mediaClass == QLatin1String("Audio/Source"))
         return 0;
+    if (node.mediaClass.startsWith(QLatin1String("Stream/Input")))
+        return 3;
     return 2;
 }
 
@@ -179,7 +182,9 @@ void PipeWireGraph::rebuild()
         for (const pw::GraphPort &port : std::as_const(ports)) {
             if (port.nodeId != node.id)
                 continue;
-            const QVariantMap entry{{QStringLiteral("id"), port.id}, {QStringLiteral("name"), port.name}};
+            // Sink monitor outputs carry the same channel names as the inputs; tell them apart.
+            const QString name = port.monitor ? tr("mon %1").arg(port.name) : port.name;
+            const QVariantMap entry{{QStringLiteral("id"), port.id}, {QStringLiteral("name"), name}};
             (port.output ? outputs : inputs).append(entry);
         }
         if (inputs.isEmpty() && outputs.isEmpty())

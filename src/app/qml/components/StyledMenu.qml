@@ -33,7 +33,7 @@ Menu {
         }
         background: Rectangle {
             radius: Theme.radiusSmall
-            color: item.highlighted ? Theme.accentSoft : "transparent"
+            color: item.highlighted ? Theme.accentSoft : Theme.clear(Theme.accentSoft)
 
             Behavior on color {
                 ColorAnimation {

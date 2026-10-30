@@ -21,8 +21,24 @@ RowLayout {
     signal moved(int value)
     signal muteToggled()
 
+    // 0 -> 1 whenever the slider becomes visible (its page opens): the fill grows from the start.
+    property real intro: 1
+
     spacing: Theme.spacing
     enabled: available
+
+    onVisibleChanged: if (visible) introAnimation.restart()
+    Component.onCompleted: if (visible) introAnimation.restart()
+
+    NumberAnimation {
+        id: introAnimation
+        target: root
+        property: "intro"
+        from: 0
+        to: 1
+        duration: Theme.animSlow
+        easing.type: Easing.OutCubic
+    }
     opacity: available ? 1.0 : 0.45
 
     IconButton {
@@ -49,7 +65,8 @@ RowLayout {
                 Layout.fillWidth: true
             }
             Text {
-                text: root.muted ? qsTr("Muted") : (slider.pressed ? Math.round(slider.value) : root.value) + root.suffix
+                text: root.muted ? qsTr("Muted")
+                                 : (slider.pressed ? Math.round(slider.value) : Math.round(root.from + (root.value - root.from) * root.intro)) + root.suffix
                 color: root.muted ? Theme.danger : Theme.text
                 font.pixelSize: Theme.fontSmall
                 font.weight: Font.DemiBold
@@ -68,8 +85,9 @@ RowLayout {
 
             // Follows the value with a short glide when it changes from outside (profiles, the
             // tray, the headset); while dragging it tracks the pointer directly.
-            property real shownPosition: visualPosition
-            Behavior on shownPosition {
+            property real glidePosition: visualPosition
+            readonly property real shownPosition: slider.pressed ? visualPosition : glidePosition * root.intro
+            Behavior on glidePosition {
                 enabled: !slider.pressed
                 NumberAnimation {
                     duration: Theme.animNormal

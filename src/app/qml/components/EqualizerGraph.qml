@@ -99,8 +99,21 @@ Item {
             return
         }
         root.fromGains = root.shownGains.slice()
+        morphAnimation.duration = Theme.animNormal
         morphAnimation.restart()
     }
+    // Each time the page opens the bands rise from 0 dB to their values.
+    function playIntro() {
+        if (root.gains.length === 0)
+            return
+        root.fromGains = root.gains.map(() => 0)
+        root.shownGains = root.fromGains.slice()
+        morphAnimation.duration = Theme.animSlow
+        morphAnimation.restart()
+    }
+    onVisibleChanged: if (visible) root.playIntro()
+    Component.onCompleted: if (visible) root.playIntro()
+
     onMorphChanged: root.shownGains = root.fromGains.map((g, i) => g + (root.gains[i] - g) * root.morph)
 
     NumberAnimation {

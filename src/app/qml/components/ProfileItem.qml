@@ -23,7 +23,7 @@ ItemDelegate {
     }
     background: Rectangle {
         radius: Theme.radius
-        color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surfaceRaised : "transparent")
+        color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surfaceRaised : Theme.clear(Theme.surfaceRaised))
         border.color: root.checked ? Theme.accent : "transparent"
 
         Behavior on color {

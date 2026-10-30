@@ -20,7 +20,7 @@ AbstractButton {
 
     background: Rectangle {
         radius: Theme.radius
-        color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surface : "transparent")
+        color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surface : Theme.clear(Theme.surface))
         border.color: root.visualFocus ? Theme.accent : "transparent"
 
         Behavior on color {

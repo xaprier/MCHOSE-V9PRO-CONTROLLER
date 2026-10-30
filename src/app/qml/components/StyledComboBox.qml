@@ -55,7 +55,7 @@ ComboBox {
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
-            color: item.highlighted ? Theme.surfaceRaised : "transparent"
+            color: item.highlighted ? Theme.surfaceRaised : Theme.clear(Theme.surfaceRaised)
         }
     }
 

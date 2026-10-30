@@ -19,7 +19,7 @@ Button {
 
     background: Rectangle {
         radius: Theme.radius
-        color: root.active ? Theme.accentSoft : (root.down ? Theme.border : (root.hovered ? Theme.surfaceRaised : "transparent"))
+        color: root.active ? Theme.accentSoft : (root.down ? Theme.border : (root.hovered ? Theme.surfaceRaised : Theme.clear(Theme.surfaceRaised)))
         border.color: root.visualFocus ? Theme.accent : "transparent"
 
         Behavior on color {

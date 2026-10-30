@@ -42,6 +42,12 @@ QtObject {
     readonly property font bodyFont: Qt.font({ pixelSize: fontBody })
     readonly property font monoFont: Qt.font({ family: "monospace", pixelSize: fontBody })
 
+    // Fully transparent version of a colour. Fading from plain "transparent" (transparent black)
+    // passes through grey; fading from this does not.
+    function clear(c) {
+        return Qt.rgba(c.r, c.g, c.b, 0)
+    }
+
     function batteryColor(percent) {
         if (percent < 0)
             return textFaint

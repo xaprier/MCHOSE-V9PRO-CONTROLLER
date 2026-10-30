@@ -44,7 +44,7 @@ Rectangle {
 
                 background: Rectangle {
                     radius: Theme.radiusSmall
-                    color: option.selected ? Theme.accentSoft : (option.hovered ? Theme.surfaceRaised : "transparent")
+                    color: option.selected ? Theme.accentSoft : (option.hovered ? Theme.surfaceRaised : Theme.clear(Theme.surfaceRaised))
                     border.color: option.selected ? Theme.accent : (option.visualFocus ? Theme.info : "transparent")
                 }
                 contentItem: Text {

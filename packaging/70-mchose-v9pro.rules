@@ -1,0 +1,3 @@
+# MCHOSE V9 PRO 2.4G dongle: give the logged-in user access to its hidraw nodes (no root needed).
+# Install: sudo cp 70-mchose-v9pro.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="291d", ATTRS{idProduct}=="385d", TAG+="uaccess"

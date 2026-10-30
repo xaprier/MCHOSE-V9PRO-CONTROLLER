@@ -1,0 +1,20 @@
+# Build
+build/
+build-*/
+cmake-build-*/
+CMakeLists.txt.user*
+compile_commands.json
+.cache/
+
+# Agent memory / tooling (local only)
+memory-bank/
+CLAUDE.md
+AGENTS.md
+.claude/
+
+# Reference material (third-party repos, not ours)
+examples/
+
+# Vendor binaries / firmware never committed
+*.bin
+drivers/

@@ -29,6 +29,7 @@ struct GraphNode {
     quint32 id = 0;
     QString name;       // node.name
     QString label;      // what to show
+    QString media;      // media.name of a stream (tab or song title), empty when it adds nothing
     QString mediaClass; // Audio/Sink, Stream/Output/Audio, ...
     bool internal = false; // one of this app's v9pro_* nodes
 };
@@ -45,6 +46,8 @@ struct GraphLink {
     quint32 id = 0;
     quint32 outPort = 0;
     quint32 inPort = 0;
+    // Made by a user tool (pw-link, a patchbay) rather than by the session manager's policy.
+    bool userMade = false;
 };
 
 // "playback_FL" -> "FL", "capture_MONO" -> "MONO"; names without a known prefix are kept.
@@ -72,6 +75,7 @@ private:
     // known; kept until a later update resolves them or removes them.
     QHash<quint32, GraphPort> m_pendingPorts;
     QHash<quint32, GraphLink> m_pendingLinks;
+    QHash<quint32, QString> m_clients; // client id -> application.name
 };
 
 } // namespace v9::pw

@@ -1,6 +1,10 @@
 #include "PipeWireGraph.h"
 
+#include "GraphLayout.h"
+
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QSettings>
 #include <QStandardPaths>
@@ -19,12 +23,6 @@ constexpr int RebuildDebounceMs = 50;
 constexpr int RestoreDebounceMs = 300;
 constexpr int DumpRestartMs = 2000;
 
-// Auto-layout: four columns, boxes stacked top to bottom.
-constexpr qreal ColumnWidth = 320;
-constexpr qreal BoxGap = 24;
-constexpr qreal HeaderHeight = 34;
-constexpr qreal RowHeight = 22;
-
 const QString RestoreKey = QStringLiteral("patchbay/restore");
 const QString RulesKey = QStringLiteral("patchbay/rules");
 const QString PositionsGroup = QStringLiteral("patchbay/positions");
@@ -38,19 +36,6 @@ QString kindOf(const pw::GraphNode &node)
     if (node.mediaClass.startsWith(QLatin1String("Stream/Input")))
         return QStringLiteral("capture");
     return QStringLiteral("device");
-}
-
-// Sound flows left to right: players and microphones, our filters, output devices, recorders
-// (which often read a sink's monitor, so they sit right of the devices).
-int columnOf(const pw::GraphNode &node)
-{
-    if (node.internal)
-        return 1;
-    if (node.mediaClass.startsWith(QLatin1String("Stream/Output")) || node.mediaClass == QLatin1String("Audio/Source"))
-        return 0;
-    if (node.mediaClass.startsWith(QLatin1String("Stream/Input")))
-        return 3;
-    return 2;
 }
 
 } // namespace
@@ -148,26 +133,6 @@ QString PipeWireGraph::positionKey(quint32 nodeId) const
     return key + QLatin1Char('#') + QString::number(occurrence);
 }
 
-QPointF PipeWireGraph::autoPosition(const pw::GraphNode &node)
-{
-    const QString key = positionKey(node.id);
-    if (const auto it = m_autoPositions.constFind(key); it != m_autoPositions.cend())
-        return *it;
-    // Below everything already in the column.
-    const qreal x = columnOf(node) * ColumnWidth;
-    qreal y = 0;
-    for (const QVariant &value : std::as_const(m_nodeList)) {
-        const QVariantMap other = value.toMap();
-        if (qFuzzyCompare(other.value(QStringLiteral("x")).toReal() + 1, x + 1)) {
-            const int rows = std::max(other.value(QStringLiteral("inputs")).toList().size(), other.value(QStringLiteral("outputs")).toList().size());
-            y = std::max(y, other.value(QStringLiteral("y")).toReal() + HeaderHeight + rows * RowHeight + BoxGap);
-        }
-    }
-    const QPointF position(x, y);
-    m_autoPositions.insert(key, position);
-    return position;
-}
-
 void PipeWireGraph::rebuild()
 {
     QList<pw::GraphNode> nodes = m_state.nodes().values();
@@ -175,6 +140,7 @@ void PipeWireGraph::rebuild()
     QList<pw::GraphPort> ports = m_state.ports().values();
     std::sort(ports.begin(), ports.end(), [](const pw::GraphPort &a, const pw::GraphPort &b) { return a.id < b.id; });
 
+    const QHash<quint32, QPointF> layout = pw::autoLayout(m_state);
     m_nodeList.clear();
     for (const pw::GraphNode &node : std::as_const(nodes)) {
         QVariantList inputs;
@@ -183,19 +149,26 @@ void PipeWireGraph::rebuild()
             if (port.nodeId != node.id)
                 continue;
             // Sink monitor outputs carry the same channel names as the inputs; tell them apart.
-            const QString name = port.monitor ? tr("mon %1").arg(port.name) : port.name;
+            const QString name = port.monitor ? QStringLiteral("mon ") + port.name : port.name;
             const QVariantMap entry{{QStringLiteral("id"), port.id}, {QStringLiteral("name"), name}};
             (port.output ? outputs : inputs).append(entry);
         }
+        // Speaker order keeps FL above FR, so stereo cables run parallel instead of crossing.
+        const auto byChannel = [](const QVariant &a, const QVariant &b) {
+            return pw::channelOrder(a.toMap().value(QStringLiteral("name")).toString())
+                 < pw::channelOrder(b.toMap().value(QStringLiteral("name")).toString());
+        };
+        std::stable_sort(inputs.begin(), inputs.end(), byChannel);
+        std::stable_sort(outputs.begin(), outputs.end(), byChannel);
         if (inputs.isEmpty() && outputs.isEmpty())
             continue; // nodes without audio ports (e.g. a suspended device profile) have nothing to patch
 
         const QString key = positionKey(node.id);
-        const QPointF position = m_positions.contains(key) ? m_positions.value(key)
-                                                           : autoPosition(node);
+        const QPointF position = m_positions.value(key, layout.value(node.id));
         m_nodeList.append(QVariantMap{
             {QStringLiteral("id"), node.id},
             {QStringLiteral("label"), node.label},
+            {QStringLiteral("media"), node.media},
             {QStringLiteral("kind"), kindOf(node)},
             {QStringLiteral("internal"), node.internal},
             {QStringLiteral("x"), position.x()},
@@ -324,6 +297,44 @@ void PipeWireGraph::setNodePosition(quint32 nodeId, qreal x, qreal y)
             value = node;
         }
     }
+}
+
+void PipeWireGraph::resetToDefaults()
+{
+    for (const pw::GraphLink &link : m_state.links()) {
+        const bool internal = m_state.nodes().value(m_state.ports().value(link.outPort).nodeId).internal
+                           && m_state.nodes().value(m_state.ports().value(link.inPort).nodeId).internal;
+        if (link.userMade && !internal)
+            runLink({QStringLiteral("--disconnect"), QString::number(link.id)});
+    }
+    m_rules.clear();
+    saveRules();
+    m_attempted.clear();
+    m_positions.clear();
+    QSettings settings;
+    settings.remove(PositionsGroup);
+    moveStreamsToDefault(QStringLiteral("sink-inputs"), QStringLiteral("move-sink-input"), QStringLiteral("@DEFAULT_SINK@"));
+    moveStreamsToDefault(QStringLiteral("source-outputs"), QStringLiteral("move-source-output"), QStringLiteral("@DEFAULT_SOURCE@"));
+    rebuild();
+}
+
+void PipeWireGraph::moveStreamsToDefault(const QString &streams, const QString &move, const QString &target)
+{
+    // A stream whose cable the user pulled has no link at all; moving it to the default makes the
+    // session manager link it again. Our own v9pro_* streams target their devices on purpose.
+    auto *list = new QProcess(this);
+    connect(list, &QProcess::finished, this, [this, list, move, target] {
+        list->deleteLater();
+        const QJsonArray entries = QJsonDocument::fromJson(list->readAllStandardOutput()).array();
+        for (const QJsonValue &entry : entries) {
+            if (entry[QStringLiteral("properties")][QStringLiteral("node.name")].toString().startsWith(QLatin1String("v9pro_")))
+                continue;
+            auto *process = new QProcess(this);
+            connect(process, &QProcess::finished, process, &QObject::deleteLater);
+            process->start(QStringLiteral("pactl"), {move, QString::number(entry[QStringLiteral("index")].toInteger()), target});
+        }
+    });
+    list->start(QStringLiteral("pactl"), {QStringLiteral("-f"), QStringLiteral("json"), QStringLiteral("list"), streams});
 }
 
 void PipeWireGraph::saveRules()

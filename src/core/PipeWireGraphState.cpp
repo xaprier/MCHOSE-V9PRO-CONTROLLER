@@ -84,8 +84,12 @@ bool GraphState::apply(const QJsonArray &objects)
             node.name = props.value(QStringLiteral("node.name")).toString();
             node.label = firstNonEmpty(props, {"node.description", "node.nick", "application.name", "node.name"});
             node.mediaClass = mediaClass;
+            node.media = props.value(QStringLiteral("media.name")).toString();
+            if (node.media == node.label || node.media == node.name)
+                node.media.clear();
             node.internal = node.name.startsWith(QLatin1String("v9pro_"));
-            if (!m_nodes.contains(id) || m_nodes[id].label != node.label || m_nodes[id].name != node.name) {
+            if (!m_nodes.contains(id) || m_nodes[id].label != node.label || m_nodes[id].name != node.name
+                || m_nodes[id].media != node.media) {
                 m_nodes.insert(id, node);
                 changed = true;
             }
@@ -101,11 +105,18 @@ bool GraphState::apply(const QJsonArray &objects)
             port.monitor = props.value(QStringLiteral("port.monitor")).toBool();
             if (!m_ports.contains(id))
                 m_pendingPorts.insert(id, port);
+        } else if (type.endsWith(QLatin1String(":Client"))) {
+            m_clients.insert(id, props.value(QStringLiteral("application.name")).toString());
         } else if (type.endsWith(QLatin1String(":Link"))) {
             GraphLink link;
             link.id = id;
             link.outPort = static_cast<quint32>(info.value(QStringLiteral("output-port-id")).toInteger());
             link.inPort = static_cast<quint32>(info.value(QStringLiteral("input-port-id")).toInteger());
+            // pw-link leaves its links behind ("linger") after it exits; WirePlumber's own links are
+            // owned by its client.
+            const QJsonValue client = props.value(QStringLiteral("client.id"));
+            link.userMade = props.value(QStringLiteral("object.linger")).toBool()
+                         || (!client.isUndefined() && m_clients.value(static_cast<quint32>(client.toInteger())) != QLatin1String("WirePlumber"));
             if (!m_links.contains(id))
                 m_pendingLinks.insert(id, link);
         }
@@ -142,6 +153,7 @@ bool GraphState::remove(quint32 id)
 {
     m_pendingLinks.remove(id);
     m_pendingPorts.remove(id);
+    m_clients.remove(id);
     if (m_links.remove(id))
         return true;
     if (m_ports.contains(id)) {
@@ -170,6 +182,7 @@ void GraphState::clear()
     m_links.clear();
     m_pendingPorts.clear();
     m_pendingLinks.clear();
+    m_clients.clear();
 }
 
 } // namespace v9::pw

@@ -22,7 +22,7 @@ class PipeWireGraph : public QObject
 {
     Q_OBJECT
 
-    // {id, label, kind ("playback" | "capture" | "device" | "internal"), internal, x, y,
+    // {id, label, media, kind ("playback" | "capture" | "device" | "internal"), internal, x, y,
     //  inputs: [{id, name}], outputs: [{id, name}]}
     Q_PROPERTY(QVariantList nodes READ nodes NOTIFY graphChanged)
     // {id, outPort, inPort, outNode, inNode, internal}
@@ -50,6 +50,9 @@ public:
     Q_INVOKABLE void disconnectLink(quint32 linkId);
     Q_INVOKABLE void forgetRule(int index);
     Q_INVOKABLE void setNodePosition(quint32 nodeId, qreal x, qreal y);
+    // Back to the session manager's routing: removes user-made links (never this app's own), forgets
+    // remembered links and box positions, and sends every program stream to the default devices.
+    Q_INVOKABLE void resetToDefaults();
 
 signals:
     void graphChanged();
@@ -63,8 +66,8 @@ private:
     void rebuild();
     void applyRules();
     void runLink(const QStringList &arguments);
+    void moveStreamsToDefault(const QString &streams, const QString &move, const QString &target);
     QString positionKey(quint32 nodeId) const;
-    QPointF autoPosition(const v9::pw::GraphNode &node);
     void saveRules();
     void setError(const QString &error);
 
@@ -75,8 +78,7 @@ private:
     v9::pw::GraphState m_state;
     QVariantList m_nodeList;
     QVariantList m_linkList;
-    QHash<QString, QPointF> m_positions;     // stored, by position key
-    QHash<QString, QPointF> m_autoPositions; // assigned this session to nodes never moved
+    QHash<QString, QPointF> m_positions; // boxes the user moved, by position key; others are auto-laid out
     QList<v9::pw::LinkRule> m_rules;
     QSet<QString> m_attempted; // "out:in" port ids the restorer already tried
     bool m_restore = false;

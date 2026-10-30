@@ -11,6 +11,8 @@ qt_add_library(v9core STATIC
     FilterChainConfig.h
     HeadsetController.cpp
     HeadsetController.h
+    GraphLayout.cpp
+    GraphLayout.h
     HidRawDevice.cpp
     HidRawDevice.h
     LinkRules.cpp

@@ -1,3 +1,4 @@
+#include "GraphLayout.h"
 #include "LinkRules.h"
 #include "PipeWireGraphState.h"
 
@@ -116,6 +117,27 @@ private slots:
         QCOMPARE(state.ports().value(5).nodeId, 4u);
     }
 
+    void streamsCarryMediaName()
+    {
+        pw::GraphState state;
+        state.apply(parse(R"([{"id":9,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"Zen","application.name":"Zen","media.name":"Song - YouTube","media.class":"Stream/Output/Audio"}}}])"));
+        QCOMPARE(state.nodes().value(9).label, QStringLiteral("Zen"));
+        QCOMPARE(state.nodes().value(9).media, QStringLiteral("Song - YouTube"));
+    }
+
+    void userLinksTellApartFromPolicyLinks()
+    {
+        pw::GraphState state;
+        state.apply(parse(Fixture));
+        state.apply(parse(R"([
+          {"id":32,"type":"PipeWire:Interface:Client","info":{"props":{"application.name":"WirePlumber"}}},
+          {"id":131,"type":"PipeWire:Interface:Link","info":{"output-port-id":122,"input-port-id":62,"props":{"client.id":32}}},
+          {"id":132,"type":"PipeWire:Interface:Link","info":{"output-port-id":121,"input-port-id":62,"props":{"object.linger":true}}}
+        ])"));
+        QVERIFY(!state.links().value(131).userMade);
+        QVERIFY(state.links().value(132).userMade);
+    }
+
     void internalNodesFlagged()
     {
         pw::GraphState state;
@@ -188,6 +210,54 @@ private slots:
         unnamed.label = QStringLiteral("Speaker");
         unnamed.mediaClass = QStringLiteral("Audio/Sink");
         QCOMPARE(pw::nodeKey(unnamed), QStringLiteral("Speaker|Audio/Sink"));
+    }
+
+    void layoutPutsIdleNodesTopRight()
+    {
+        pw::GraphState state;
+        state.apply(parse(RuleFixture));
+        state.apply(parse(R"([{"id":99,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":31}}])"));
+        const QHash<quint32, QPointF> positions = pw::autoLayout(state);
+        // Zen 10 feeds Discord 30: first and second used column. Everything else is idle, stacked in
+        // the column right of them from the top.
+        QCOMPARE(positions.value(10).x(), 0.0);
+        QCOMPARE(positions.value(30).x(), pw::LayoutColumnWidth);
+        const qreal idleX = 2 * pw::LayoutColumnWidth;
+        for (quint32 idle : {20u, 40u, 50u})
+            QCOMPARE(positions.value(idle).x(), idleX);
+        QCOMPARE(positions.value(20).y(), 0.0);
+        QVERIFY(positions.value(40).y() > positions.value(20).y());
+        QVERIFY(positions.value(50).y() > positions.value(40).y());
+    }
+
+    void layoutOrdersByNeighbours()
+    {
+        // Two players feed two recorders crosswise by id; the recorders are reordered so cables do
+        // not cross.
+        pw::GraphState state;
+        state.apply(parse(R"([
+          {"id":1,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"a","media.class":"Stream/Output/Audio"}}},
+          {"id":2,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":1,"port.name":"output_FL"}}},
+          {"id":3,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"b","media.class":"Stream/Output/Audio"}}},
+          {"id":4,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":3,"port.name":"output_FL"}}},
+          {"id":5,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"x","media.class":"Stream/Input/Audio"}}},
+          {"id":6,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":5,"port.name":"input_MONO"}}},
+          {"id":7,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"y","media.class":"Stream/Input/Audio"}}},
+          {"id":8,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":7,"port.name":"input_MONO"}}},
+          {"id":10,"type":"PipeWire:Interface:Link","info":{"output-port-id":2,"input-port-id":8}},
+          {"id":11,"type":"PipeWire:Interface:Link","info":{"output-port-id":4,"input-port-id":6}}
+        ])"));
+        const QHash<quint32, QPointF> positions = pw::autoLayout(state);
+        QVERIFY(positions.value(1).y() < positions.value(3).y());
+        QVERIFY(positions.value(7).y() < positions.value(5).y());
+    }
+
+    void channelsSortInSpeakerOrder()
+    {
+        QStringList names{QStringLiteral("FR"), QStringLiteral("AUX0"), QStringLiteral("FL"), QStringLiteral("mon FR"), QStringLiteral("mon FL")};
+        std::stable_sort(names.begin(), names.end(), [](const QString &a, const QString &b) { return pw::channelOrder(a) < pw::channelOrder(b); });
+        const QStringList expected{QStringLiteral("FL"), QStringLiteral("FR"), QStringLiteral("AUX0"), QStringLiteral("mon FL"), QStringLiteral("mon FR")};
+        QCOMPARE(names, expected);
     }
 };
 

@@ -66,6 +66,17 @@ RowLayout {
             Accessible.name: root.label
             onMoved: root.moved(Math.round(value))
 
+            // Follows the value with a short glide when it changes from outside (profiles, the
+            // tray, the headset); while dragging it tracks the pointer directly.
+            property real shownPosition: visualPosition
+            Behavior on shownPosition {
+                enabled: !slider.pressed
+                NumberAnimation {
+                    duration: Theme.animNormal
+                    easing.type: Easing.OutCubic
+                }
+            }
+
             background: Rectangle {
                 x: slider.leftPadding
                 y: slider.topPadding + slider.availableHeight / 2 - height / 2
@@ -77,7 +88,7 @@ RowLayout {
                 color: Theme.track
 
                 Rectangle {
-                    width: slider.visualPosition * parent.width
+                    width: slider.shownPosition * parent.width
                     height: parent.height
                     radius: 3
                     color: root.muted ? Theme.textFaint : Theme.accent
@@ -85,7 +96,7 @@ RowLayout {
             }
 
             handle: Rectangle {
-                x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
+                x: slider.leftPadding + slider.shownPosition * (slider.availableWidth - width)
                 y: slider.topPadding + slider.availableHeight / 2 - height / 2
                 implicitWidth: 18
                 implicitHeight: 18

@@ -23,14 +23,32 @@ AbstractButton {
         color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surface : "transparent")
         border.color: root.visualFocus ? Theme.accent : "transparent"
 
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.animFast
+            }
+        }
+
         Rectangle {
-            visible: root.checked
             width: 3
-            height: 18
+            height: root.checked ? 18 : 0
+            opacity: root.checked ? 1 : 0
             radius: 1.5
             color: Theme.accent
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
+
+            Behavior on height {
+                NumberAnimation {
+                    duration: Theme.animNormal
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.animFast
+                }
+            }
         }
     }
 
@@ -43,8 +61,14 @@ AbstractButton {
             sourceSize.height: root.icon.height
             Layout.preferredWidth: root.icon.width
             Layout.preferredHeight: root.icon.height
-            opacity: root.checked ? 1.0 : 0.6
+            opacity: root.checked || root.hovered ? 1.0 : 0.6
             Accessible.ignored: true
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.animFast
+                }
+            }
         }
         Text {
             text: root.text

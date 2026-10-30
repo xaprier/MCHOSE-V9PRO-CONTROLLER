@@ -123,7 +123,19 @@ ApplicationWindow {
         }
 
         StackLayout {
+            id: pages
+
             currentIndex: window.currentPage
+            // The page coming in fades up and settles from a slight zoom.
+            onCurrentIndexChanged: {
+                const page = pages.children[pages.currentIndex]
+                if (!page)
+                    return
+                pageIn.stop()
+                pageFade.target = page
+                pageZoom.target = page
+                pageIn.start()
+            }
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 24
@@ -135,6 +147,27 @@ ApplicationWindow {
             PatchbayPage {}
             SoundboardPage {}
             DevicePage {}
+        }
+    }
+
+    ParallelAnimation {
+        id: pageIn
+
+        NumberAnimation {
+            id: pageFade
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: Theme.animNormal
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            id: pageZoom
+            property: "scale"
+            from: 0.985
+            to: 1
+            duration: Theme.animNormal
+            easing.type: Easing.OutCubic
         }
     }
 }

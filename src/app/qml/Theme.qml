@@ -34,6 +34,11 @@ QtObject {
     readonly property int fontSmall: 11
     readonly property int fontDisplay: 34
 
+    // Motion: hover/press feedback, value changes, page and graph entrances.
+    readonly property int animFast: 120
+    readonly property int animNormal: 240
+    readonly property int animSlow: 600
+
     readonly property font bodyFont: Qt.font({ pixelSize: fontBody })
     readonly property font monoFont: Qt.font({ family: "monospace", pixelSize: fontBody })
 

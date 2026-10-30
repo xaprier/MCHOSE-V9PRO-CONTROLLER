@@ -25,5 +25,11 @@ ItemDelegate {
         radius: Theme.radius
         color: root.checked ? Theme.accentSoft : (root.hovered ? Theme.surfaceRaised : "transparent")
         border.color: root.checked ? Theme.accent : "transparent"
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.animFast
+            }
+        }
     }
 }

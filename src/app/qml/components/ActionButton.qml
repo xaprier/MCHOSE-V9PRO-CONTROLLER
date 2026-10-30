@@ -31,5 +31,11 @@ Button {
              : root.hovered ? Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.2)
              : (root.kind === "secondary" ? Theme.surfaceRaised : Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.12))
         border.color: root.visualFocus ? Theme.info : (root.kind === "secondary" ? Theme.border : Qt.rgba(root.tone.r, root.tone.g, root.tone.b, root.enabled ? 0.7 : 0.2))
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.animFast
+            }
+        }
     }
 }

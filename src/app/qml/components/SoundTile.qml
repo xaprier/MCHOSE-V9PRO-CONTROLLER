@@ -27,6 +27,19 @@ AbstractButton {
             height: 28
             radius: 14
             color: root.playing ? Theme.accent : Theme.track
+            scale: root.down ? 0.9 : 1
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: Theme.animFast
+                }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: Theme.animFast
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             // Drawn rather than ▶/■ glyphs, whose font metrics put them off centre.
             Rectangle {
@@ -76,5 +89,11 @@ AbstractButton {
         radius: Theme.radius
         color: root.playing ? Theme.accentSoft : (root.hovered && root.enabled ? Theme.surfaceRaised : Theme.surface)
         border.color: root.playing ? Theme.accent : Theme.border
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.animFast
+            }
+        }
     }
 }

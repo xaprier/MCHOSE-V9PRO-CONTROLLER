@@ -15,6 +15,10 @@ Item {
     signal bandMoved(int band, real gain)
 
     readonly property real range: 20
+    // What is drawn: glides to `gains` when a profile is loaded, follows it directly while dragging.
+    property var shownGains: []
+    property var fromGains: []
+    property real morph: 1
     readonly property int bandCount: root.labels.length
     readonly property color lineColor: active ? Theme.accent : Theme.textMuted
 
@@ -43,11 +47,11 @@ Item {
     // point, so the line does not suggest boosts that are not there.
     readonly property var linePoints: {
         const n = root.bandCount
-        if (n < 2 || root.gains.length < n || root.width <= 0)
+        if (n < 2 || root.shownGains.length < n || root.width <= 0)
             return []
         const ys = []
         for (let i = 0; i < n; ++i)
-            ys.push(root.yForGain(root.gains[i]))
+            ys.push(root.yForGain(root.shownGains[i]))
         const d = []
         for (let i = 0; i < n - 1; ++i)
             d.push((ys[i + 1] - ys[i]) / root.step)
@@ -87,6 +91,27 @@ Item {
     }
 
     implicitHeight: 320
+
+    onGainsChanged: {
+        if (plotArea.band >= 0 || root.shownGains.length !== root.gains.length) {
+            morphAnimation.stop()
+            root.shownGains = root.gains.slice()
+            return
+        }
+        root.fromGains = root.shownGains.slice()
+        morphAnimation.restart()
+    }
+    onMorphChanged: root.shownGains = root.fromGains.map((g, i) => g + (root.gains[i] - g) * root.morph)
+
+    NumberAnimation {
+        id: morphAnimation
+        target: root
+        property: "morph"
+        from: 0
+        to: 1
+        duration: Theme.animNormal
+        easing.type: Easing.OutCubic
+    }
 
     Accessible.role: Accessible.Chart
     Accessible.name: qsTr("Equalizer bands")
@@ -218,7 +243,9 @@ Item {
             id: handle
 
             required property int index
-            readonly property real gain: root.gains.length > handle.index ? root.gains[handle.index] : 0
+            readonly property real gain: root.shownGains.length > handle.index ? root.shownGains[handle.index] : 0
+            // Keys step from the real value, not from a point still gliding into place.
+            readonly property real target: root.gains.length > handle.index ? root.gains[handle.index] : 0
             readonly property bool highlighted: plotArea.band === handle.index || handle.activeFocus
 
             x: root.xForBand(handle.index)
@@ -227,13 +254,13 @@ Item {
 
             Accessible.role: Accessible.Slider
             Accessible.name: qsTr("%1 Hz").arg(root.labels[handle.index] ?? "")
-            Accessible.description: qsTr("%1 dB").arg(handle.gain)
+            Accessible.description: qsTr("%1 dB").arg(handle.target)
 
-            Keys.onUpPressed: root.bandMoved(handle.index, handle.gain + 0.5)
-            Keys.onDownPressed: root.bandMoved(handle.index, handle.gain - 0.5)
+            Keys.onUpPressed: root.bandMoved(handle.index, handle.target + 0.5)
+            Keys.onDownPressed: root.bandMoved(handle.index, handle.target - 0.5)
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
-                    root.bandMoved(handle.index, handle.gain + (event.key === Qt.Key_PageUp ? 3 : -3))
+                    root.bandMoved(handle.index, handle.target + (event.key === Qt.Key_PageUp ? 3 : -3))
                     event.accepted = true
                 } else if (event.key === Qt.Key_0 || event.key === Qt.Key_Home) {
                     root.bandMoved(handle.index, 0)
@@ -253,7 +280,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 12
-                text: root.gainText(handle.gain)
+                text: root.gainText(handle.target)
                 color: handle.highlighted ? Theme.text : Theme.textMuted
                 font.pixelSize: Theme.fontSmall
                 font.weight: handle.highlighted ? Font.DemiBold : Font.Normal

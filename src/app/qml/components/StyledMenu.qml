@@ -34,6 +34,12 @@ Menu {
         background: Rectangle {
             radius: Theme.radiusSmall
             color: item.highlighted ? Theme.accentSoft : "transparent"
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: Theme.animFast
+                }
+            }
         }
     }
 }

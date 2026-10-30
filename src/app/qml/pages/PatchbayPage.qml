@@ -24,6 +24,26 @@ Item {
     property int nodeRevision: 0
     // Keep everything in view until the user pans, zooms or moves a box; "Fit" turns it back on.
     property bool autoFit: true
+    // Entrance when the tab opens: boxes come in column by column, then the cables.
+    property real intro: 1
+    // Ids already shown once; delegates are recreated on every graph change, and only boxes and
+    // cables that are new should animate in.
+    property var seenNodes: ({})
+    property var seenLinks: ({})
+    readonly property real layoutWidth: Patchbay.nodes.reduce((m, n) => Math.max(m, n.x), 1)
+    readonly property real cableReveal: Math.max(0, Math.min(1, (root.intro - 0.55) / 0.45))
+
+    onVisibleChanged: if (visible && nodeRepeater.count > 0) introAnimation.restart()
+
+    NumberAnimation {
+        id: introAnimation
+        target: root
+        property: "intro"
+        from: 0
+        to: 1
+        duration: Theme.animSlow * 1.5
+        easing.type: Easing.Linear
+    }
 
     readonly property var nodeIndex: {
         const index = {}
@@ -322,6 +342,24 @@ Item {
                         id: cable
 
                         required property var modelData
+                        property real appear: 1
+
+                        opacity: root.cableReveal * cable.appear
+                        Component.onCompleted: {
+                            if (!root.seenLinks[cable.modelData.id]) {
+                                root.seenLinks[cable.modelData.id] = true
+                                if (root.intro >= 1)
+                                    cableAppear.start()
+                            }
+                        }
+                        NumberAnimation {
+                            id: cableAppear
+                            target: cable
+                            property: "appear"
+                            from: 0
+                            to: 1
+                            duration: Theme.animNormal
+                        }
                         readonly property var ends: root.cableEnds(cable.modelData)
                         readonly property bool selected: root.selectedLink === cable.modelData.id
                         readonly property var outItem: root.nodeItem(cable.modelData.outNode)
@@ -395,6 +433,28 @@ Item {
                         id: patchNode
 
                         required property var modelData
+                        // Left columns first during the entrance.
+                        readonly property real reveal: Math.max(0, Math.min(1, (root.intro - patchNode.modelData.x / root.layoutWidth * 0.45) / 0.35))
+                        property real appear: 1
+
+                        opacity: patchNode.reveal * patchNode.appear
+                        scale: 0.92 + 0.08 * Math.min(patchNode.reveal, patchNode.appear)
+                        Component.onCompleted: {
+                            if (!root.seenNodes[patchNode.modelData.id]) {
+                                root.seenNodes[patchNode.modelData.id] = true
+                                if (root.intro >= 1)
+                                    nodeAppear.start()
+                            }
+                        }
+                        NumberAnimation {
+                            id: nodeAppear
+                            target: patchNode
+                            property: "appear"
+                            from: 0
+                            to: 1
+                            duration: Theme.animNormal
+                            easing.type: Easing.OutCubic
+                        }
 
                         node: patchNode.modelData
                         x: patchNode.modelData.x

@@ -21,6 +21,12 @@ Button {
         radius: Theme.radius
         color: root.active ? Theme.accentSoft : (root.down ? Theme.border : (root.hovered ? Theme.surfaceRaised : "transparent"))
         border.color: root.visualFocus ? Theme.accent : "transparent"
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.animFast
+            }
+        }
     }
 
     ToolTip.visible: hovered && text.length > 0

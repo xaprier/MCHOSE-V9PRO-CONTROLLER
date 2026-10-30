@@ -18,6 +18,8 @@ qt_add_library(v9core STATIC
     NoiseSuppressor.cpp
     NoiseSuppressor.h
     PipeWireFilter.cpp
+    PipeWireGraphState.cpp
+    PipeWireGraphState.h
     PipeWireFilter.h
     ReportLogModel.cpp
     ReportLogModel.h

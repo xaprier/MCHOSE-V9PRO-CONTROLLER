@@ -21,3 +21,15 @@ target_link_libraries(tst_engines
 )
 
 add_test(NAME tst_engines COMMAND tst_engines)
+
+qt_add_executable(tst_patchbay
+    tst_patchbay.cpp
+)
+
+target_link_libraries(tst_patchbay
+    PRIVATE
+        Qt6::Test
+        V9::Core
+)
+
+add_test(NAME tst_patchbay COMMAND tst_patchbay)

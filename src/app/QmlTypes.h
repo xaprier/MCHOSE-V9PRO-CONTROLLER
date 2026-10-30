@@ -2,7 +2,6 @@
 
 #include "AudioMixer.h"
 #include "EqualizerEngine.h"
-#include "FirmwareManager.h"
 #include "HeadsetController.h"
 #include "MicMonitor.h"
 #include "NoiseSuppressor.h"
@@ -108,25 +107,6 @@ public:
     }
 };
 
-struct FirmwareForeign
-{
-    Q_GADGET
-    QML_FOREIGN(FirmwareManager)
-    QML_NAMED_ELEMENT(Firmware)
-    QML_SINGLETON
-
-public:
-    static inline FirmwareManager *instance = nullptr;
-
-    static FirmwareManager *create(QQmlEngine *, QJSEngine *engine)
-    {
-        Q_ASSERT(instance);
-        Q_ASSERT(engine->thread() == instance->thread());
-        QJSEngine::setObjectOwnership(instance, QJSEngine::CppOwnership);
-        return instance;
-    }
-};
-
 struct HidLogForeign
 {
     Q_GADGET
@@ -144,12 +124,4 @@ public:
         QJSEngine::setObjectOwnership(instance, QJSEngine::CppOwnership);
         return instance;
     }
-};
-
-struct FirmwareFlasherForeign
-{
-    Q_GADGET
-    QML_FOREIGN(FirmwareFlasher)
-    QML_NAMED_ELEMENT(FirmwareFlasher)
-    QML_UNCREATABLE("Enum holder only")
 };

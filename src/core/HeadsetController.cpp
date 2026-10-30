@@ -76,7 +76,7 @@ QString HeadsetController::devicePath() const
 
 void HeadsetController::scan()
 {
-    if (m_device->isOpen() || m_suspended)
+    if (m_device->isOpen())
         return;
 
     const auto node = HidRawDevice::findNode(proto::VendorId, proto::ProductId, proto::ControlReportId);
@@ -109,7 +109,7 @@ void HeadsetController::onDisconnected()
 
 void HeadsetController::refresh()
 {
-    if (!m_device->isOpen() || m_suspended)
+    if (!m_device->isOpen())
         return;
 
     enqueue({proto::batteryRequest(), proto::CmdBattery, 1, [this](bool answered) {
@@ -224,7 +224,7 @@ void HeadsetController::enqueue(Request request)
 
 void HeadsetController::processNext()
 {
-    if (m_inFlight || m_queue.empty() || !m_device->isOpen() || m_suspended)
+    if (m_inFlight || m_queue.empty() || !m_device->isOpen())
         return;
 
     Request &request = m_queue.front();
@@ -337,25 +337,6 @@ void HeadsetController::sendLegacy(const QString &label, int command, int value,
                  emit experimentalChanged();
                  emit experimentalResult(label, true, tr("reply %1 → value %2").arg(QString::fromLatin1(pending->first(6).toHex(' '))).arg(*value));
              }});
-}
-
-void HeadsetController::setSuspended(bool suspended)
-{
-    if (m_suspended == suspended)
-        return;
-    m_suspended = suspended;
-    if (suspended) {
-        m_pollTimer->stop();
-        m_replyTimer->stop();
-        m_queue.clear();
-        m_inFlight = false;
-    } else if (m_device->isOpen()) {
-        m_pollTimer->start();
-        refresh();
-    } else {
-        m_scanTimer->start();
-    }
-    emit suspendedChanged();
 }
 
 void HeadsetController::setHeadsetOnline(bool online)

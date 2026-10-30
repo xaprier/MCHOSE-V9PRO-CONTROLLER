@@ -108,7 +108,11 @@ firmware'de, dongle bir sürüm geride. Headset sürümünün ilk hanesi dil tip
 EPIPE ile durduruyor. Firmware okuması tek seferde bir tane olmalı (uygulamada `m_firmwareReading`).
 0x55 trafiğinin araya girmesi sorun değil (test edildi).
 
-### 2.4 OTA / firmware flash (Be-Quiet-MCHOSE)
+### 2.4 OTA / firmware flash (Be-Quiet-MCHOSE) — sadece referans, uygulamadan KALDIRILDI (2026-10-30)
+
+Kullanıcı kararı: firmware yamalama/flash riskli, uygulamada yer almayacak. Aşağıdaki notlar yalnızca
+protokol kaydı; bu komutlar uygulama tarafından gönderilmez.
+
 
 ```
 Enter update : out 55, payload[0]=0x55, payload[1]=1 (headset) | 0 (dongle)
@@ -118,10 +122,8 @@ Flow control : in 55 [60 FF]=dur, [60 00]=devam
 Result       : in 55 [01 01 00]=başarılı, [01 00 00]=başarısız
 ```
 
-- Uygulamada: Lab → "Voice prompt silencer". C++ yamalayıcı (`src/core/FirmwareImage.*`) gerçek `1015.bin`
-  üzerinde Be-Quiet `build_firmware.py 8 9` çıktısıyla **byte-byte aynı** (opt-in test `realImageMatchesReference`).
-  Flasher (`FirmwareFlasher`) ayrı thread + ayrı hidraw handle; flash sırasında HeadsetController askıda.
-  **Flash henüz cihazda denenmedi.**
+- Geçmiş: bir C++ yamalayıcı + flasher yazılmıştı (yamalayıcı Be-Quiet çıktısıyla byte-byte aynıydı), flash
+  cihazda hiç denenmedi; 2026-10-30'da kullanıcı kararıyla kaldırıldı (git geçmişinde `58748d3`).
 - Firmware: AOTA konteyner, partition'lar 32 byte sabit XOR pad ile "şifreli",
   imza kontrolü yok. `tone.bin` = 18 sesli bildirim klibi; İngilizce FW'de **klip 8 = mic on, 9 = mic off**.
 - OTA config: `https://cdn.mchose.com.cn/OTA/PC/prod/otaFile/otaConfig_prod.json`,

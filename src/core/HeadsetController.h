@@ -29,7 +29,6 @@ class HeadsetController : public QObject
     Q_PROPERTY(QString dongleFirmwareRaw READ dongleFirmwareRaw NOTIFY firmwareChanged)
     Q_PROPERTY(QString headsetFirmwareRaw READ headsetFirmwareRaw NOTIFY firmwareChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
-    Q_PROPERTY(bool suspended READ suspended NOTIFY suspendedChanged)
     // Untested on V9 PRO (docs/ANALYSIS.md §2.5); -1 until read successfully.
     Q_PROPERTY(int autoShutdown READ autoShutdown NOTIFY experimentalChanged)
     Q_PROPERTY(int promptVolume READ promptVolume NOTIFY experimentalChanged)
@@ -67,7 +66,6 @@ public:
     QString headsetFirmwareRaw() const { return m_headsetFirmwareRaw; }
     QString lastError() const { return m_lastError; }
 
-    bool suspended() const { return m_suspended; }
     int autoShutdown() const { return m_autoShutdown; }
     int promptVolume() const { return m_promptVolume; }
 
@@ -84,9 +82,6 @@ public:
     // Sent only when `confirmation` is exactly "RESET".
     Q_INVOKABLE bool factoryReset(const QString &confirmation);
 
-    // Stops polling and releases the queue so another component (the OTA flasher, which opens
-    // its own handle) has the device to itself.
-    void setSuspended(bool suspended);
 
 signals:
     void connectionChanged();
@@ -94,7 +89,6 @@ signals:
     void soundModeChanged();
     void firmwareChanged();
     void lastErrorChanged();
-    void suspendedChanged();
     void experimentalChanged();
     void experimentalResult(const QString &command, bool answered, const QString &detail);
     // Every report in and out, for the HID monitor. `outgoing` marks what this app sent.
@@ -142,7 +136,6 @@ private:
     QString m_dongleFirmwareRaw;
     QString m_headsetFirmwareRaw;
     QString m_lastError;
-    bool m_suspended = false;
     int m_autoShutdown = -1;
     int m_promptVolume = -1;
 };

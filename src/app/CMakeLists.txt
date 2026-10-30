@@ -43,7 +43,6 @@ qt_add_qml_module(v9pro-control
         qml/pages/DevicePage.qml
         qml/pages/EqualizerPage.qml
         qml/pages/HomePage.qml
-        qml/pages/FirmwarePanel.qml
         qml/pages/LabPage.qml
     RESOURCES
         qml/icons/battery.svg

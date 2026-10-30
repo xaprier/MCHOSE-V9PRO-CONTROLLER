@@ -9,12 +9,6 @@ qt_add_library(v9core STATIC
     EqualizerProfile.h
     FilterChainConfig.cpp
     FilterChainConfig.h
-    FirmwareFlasher.cpp
-    FirmwareFlasher.h
-    FirmwareImage.cpp
-    FirmwareImage.h
-    FirmwareManager.cpp
-    FirmwareManager.h
     HeadsetController.cpp
     HeadsetController.h
     HidRawDevice.cpp
@@ -41,8 +35,6 @@ target_include_directories(v9core
 target_link_libraries(v9core
     PUBLIC
         Qt6::Core
-    PRIVATE
-        Qt6::Network
 )
 
 target_compile_options(v9core

@@ -18,8 +18,7 @@ the headset directly over hidraw and to PipeWire. No network access.
 - System tray: closing the window keeps the app (and the audio chains) running; the tray menu shows the
   battery, toggles the equalizer / noise suppression / monitor and quits. Start with `--hidden` to go
   straight to the tray, e.g. from autostart. Streams are moved back to the headset before quitting.
-- Lab: HID monitor, experimental headset settings, and a voice prompt silencer that rebuilds the stock
-  firmware with the mic on/off announcements silenced and flashes it over the dongle
+- Lab: HID monitor and experimental headset settings
 
 See `docs/ANALYSIS.md` for the protocol and feature map.
 

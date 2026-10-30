@@ -83,14 +83,12 @@ int main(int argc, char *argv[])
     EqualizerEngine equalizer(&mixer);
     NoiseSuppressor noiseSuppressor(&mixer);
     MicMonitor monitor(&mixer, &noiseSuppressor);
-    FirmwareManager firmware(&headset);
     ReportLogModel hidLog(&headset);
     HeadsetForeign::instance = &headset;
     MixerForeign::instance = &mixer;
     EqualizerForeign::instance = &equalizer;
     NoiseSuppressionForeign::instance = &noiseSuppressor;
     MonitorForeign::instance = &monitor;
-    FirmwareForeign::instance = &firmware;
     HidLogForeign::instance = &hidLog;
 
     // Hand the default devices and streams back first and quit a little later; the destructors

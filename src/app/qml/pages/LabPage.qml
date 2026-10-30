@@ -34,20 +34,6 @@ ScrollView {
     }
 
     FileDialog {
-        id: openFirmwareDialog
-        title: qsTr("Open stock headset firmware")
-        nameFilters: [qsTr("Firmware images (*.bin)")]
-        onAccepted: Firmware.loadFile(selectedFile)
-    }
-    FileDialog {
-        id: savePatchedDialog
-        title: qsTr("Save patched firmware")
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "bin"
-        nameFilters: [qsTr("Firmware images (*.bin)")]
-        onAccepted: Firmware.savePatched(selectedFile)
-    }
-    FileDialog {
         id: saveLogDialog
         title: qsTr("Save HID capture")
         fileMode: FileDialog.SaveFile
@@ -61,7 +47,7 @@ ScrollView {
 
         WarningBanner {
             title: qsTr("Lab — use at your own risk")
-            text: qsTr("These tools go beyond what MCHOSE HUB offers for the V9 PRO. Some commands are untested on this model and some write to the headset's firmware. Nothing here runs on its own; every write needs an explicit action, and flashing needs a typed confirmation.")
+            text: qsTr("These tools go beyond what MCHOSE HUB offers for the V9 PRO. Some commands are untested on this model. Nothing here runs on its own; every write needs an explicit action.")
             Layout.fillWidth: true
         }
 
@@ -172,7 +158,7 @@ ScrollView {
         Card {
             visible: root.unlocked
             title: qsTr("Experimental headset settings")
-            subtitle: qsTr("Commands MCHOSE HUB uses for the V9 TURBO family (same chip). Headset firmware 1015 does not answer either read, so they look unsupported on the V9 PRO; kept for other firmware versions. To silence the voice prompts use the firmware tool below.")
+            subtitle: qsTr("Commands MCHOSE HUB uses for the V9 TURBO family (same chip). Headset firmware 1015 does not answer either read, so they look unsupported on the V9 PRO; kept for other firmware versions.")
             Layout.fillWidth: true
 
             GridLayout {
@@ -344,13 +330,6 @@ ScrollView {
                     }
                 }
             }
-        }
-
-        FirmwarePanel {
-            visible: root.unlocked
-            Layout.fillWidth: true
-            onOpenRequested: openFirmwareDialog.open()
-            onSaveRequested: savePatchedDialog.open()
         }
     }
 }

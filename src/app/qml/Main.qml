@@ -8,8 +8,9 @@ ApplicationWindow {
 
     width: 1100
     height: 700
-    minimumWidth: 820
-    minimumHeight: 560
+    // Wide enough for the Home page's two columns (content >= 720 px next to the sidebar).
+    minimumWidth: 1000
+    minimumHeight: 640
     title: qsTr("V9 Pro Control")
     color: Theme.background
 
@@ -103,7 +104,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Device")
+                    text: qsTr("About")
                     icon.source: Qt.resolvedUrl("icons/info.svg")
                     checked: window.currentPage === 4
                     onClicked: window.currentPage = 4
@@ -146,7 +147,7 @@ ApplicationWindow {
             EqualizerPage {}
             PatchbayPage {}
             SoundboardPage {}
-            DevicePage {}
+            AboutPage {}
         }
     }
 

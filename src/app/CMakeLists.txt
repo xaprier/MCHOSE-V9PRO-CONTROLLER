@@ -11,6 +11,13 @@ qt_add_resources(v9pro-control "app_icon"
         ../../packaging/v9pro-control.svg
 )
 
+qt_add_resources(v9pro-control "app_images"
+    PREFIX "/images"
+    BASE ../../packaging
+    FILES
+        ../../packaging/developer.jpg
+)
+
 # Must precede qt_add_qml_module so the generated qmldir marks Theme as a singleton.
 set_source_files_properties(qml/Theme.qml
     PROPERTIES
@@ -44,7 +51,7 @@ qt_add_qml_module(v9pro-control
         qml/components/StyledTextField.qml
         qml/components/ToggleSwitch.qml
         qml/components/WarningBanner.qml
-        qml/pages/DevicePage.qml
+        qml/pages/AboutPage.qml
         qml/pages/EqualizerPage.qml
         qml/pages/HomePage.qml
         qml/pages/PatchbayPage.qml

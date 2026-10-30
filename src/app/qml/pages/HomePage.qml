@@ -348,6 +348,7 @@ ScrollView {
                 }
                 Text {
                     visible: NoiseSuppression.error.length > 0
+                    textFormat: Text.PlainText
                     text: NoiseSuppression.error
                     color: Theme.danger
                     font.pixelSize: Theme.fontSmall
@@ -378,6 +379,7 @@ ScrollView {
                 }
                 Text {
                     visible: Monitor.error.length > 0
+                    textFormat: Text.PlainText
                     text: Monitor.error
                     color: Theme.danger
                     font.pixelSize: Theme.fontSmall

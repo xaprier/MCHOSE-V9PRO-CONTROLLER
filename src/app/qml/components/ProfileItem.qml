@@ -13,6 +13,7 @@ ItemDelegate {
     rightPadding: 14
 
     contentItem: Text {
+        textFormat: Text.PlainText
         text: root.modified ? qsTr("%1 · modified").arg(root.text) : root.text
         color: root.checked ? Theme.text : Theme.textMuted
         font.pixelSize: Theme.fontBody

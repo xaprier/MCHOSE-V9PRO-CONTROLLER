@@ -27,6 +27,7 @@ Dialog {
     }
 
     header: Text {
+        textFormat: Text.PlainText
         text: root.title
         color: Theme.text
         font.pixelSize: Theme.fontHeading
@@ -38,6 +39,7 @@ Dialog {
     }
 
     contentItem: Text {
+        textFormat: Text.PlainText
         text: root.text
         color: Theme.textMuted
         font.pixelSize: Theme.fontBody

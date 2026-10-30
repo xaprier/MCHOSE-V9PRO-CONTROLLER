@@ -75,6 +75,7 @@ Rectangle {
 
             Text {
                 width: parent.width
+                textFormat: Text.PlainText
                 text: root.node.label
                 color: Theme.text
                 font.pixelSize: Theme.fontSmall
@@ -85,15 +86,30 @@ Rectangle {
             Text {
                 visible: root.node.media.length > 0
                 width: parent.width
+                textFormat: Text.PlainText
                 text: root.node.media
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSmall - 1
                 elide: Text.ElideRight
             }
         }
-        ToolTip.visible: headerHover.hovered && root.node.media.length > 0
-        ToolTip.text: root.node.media
-        ToolTip.delay: 500
+        // media.name is a web page title: never let it be read as rich text.
+        ToolTip {
+            visible: headerHover.hovered && root.node.media.length > 0
+            delay: 500
+            contentItem: Text {
+                textFormat: Text.PlainText
+                text: root.node.media
+                color: Theme.text
+                font.pixelSize: Theme.fontSmall
+                wrapMode: Text.WordWrap
+            }
+            background: Rectangle {
+                radius: Theme.radiusSmall
+                color: Theme.surfaceRaised
+                border.color: Theme.border
+            }
+        }
         DragHandler {
             target: root
             cursorShape: Qt.ClosedHandCursor
@@ -151,6 +167,7 @@ Rectangle {
                         x: port.output ? parent.width - width - 12 : 12
                         width: parent.width - 16
                         horizontalAlignment: port.output ? Text.AlignRight : Text.AlignLeft
+                        textFormat: Text.PlainText
                         text: port.modelData.name
                         color: port.active ? Theme.text : Theme.textMuted
                         font.pixelSize: Theme.fontSmall

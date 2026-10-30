@@ -224,6 +224,7 @@ Item {
                         spacing: 6
 
                         Text {
+                            textFormat: Text.PlainText
                             text: chip.modelData
                             color: Theme.text
                             font.pixelSize: Theme.fontSmall
@@ -253,6 +254,7 @@ Item {
 
         Text {
             visible: Patchbay.error.length > 0
+            textFormat: Text.PlainText
             text: Patchbay.error
             color: Theme.danger
             font.pixelSize: Theme.fontSmall

@@ -25,6 +25,7 @@ Menu {
         rightPadding: 12
 
         contentItem: Text {
+            textFormat: Text.PlainText
             text: item.text
             color: item.enabled ? Theme.text : Theme.textFaint
             font.pixelSize: Theme.fontBody

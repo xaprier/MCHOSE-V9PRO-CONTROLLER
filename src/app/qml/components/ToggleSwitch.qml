@@ -43,6 +43,7 @@ Switch {
 
     contentItem: Text {
         leftPadding: root.text.length > 0 ? root.indicator.width + root.spacing : root.indicator.width
+        textFormat: Text.PlainText
         text: root.text
         color: root.enabled ? Theme.text : Theme.textFaint
         font.pixelSize: Theme.fontBody

@@ -64,6 +64,7 @@ ScrollView {
 
         Text {
             visible: Equalizer.error.length > 0
+            textFormat: Text.PlainText
             text: Equalizer.error
             color: Theme.danger
             font.pixelSize: Theme.fontSmall
@@ -181,6 +182,7 @@ ScrollView {
                     }
                     Text {
                         visible: !root.customSelected
+                        textFormat: Text.PlainText
                         text: Equalizer.currentProfile.length > 0
                               ? (Equalizer.modified ? qsTr("%1 (modified)").arg(Equalizer.currentProfile) : Equalizer.currentProfile)
                               : qsTr("Unsaved curve")

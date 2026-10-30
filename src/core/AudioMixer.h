@@ -68,6 +68,16 @@ public:
     };
     static std::optional<Endpoint> findHeadsetEndpoint(const QByteArray &pactlJson);
 
+    // Moves every stream playing to (Playback) or recording from (Capture) the node `from` over to
+    // `to`, synchronously. Used before a virtual device is torn down: apps whose device vanishes
+    // (browsers in particular) pause instead of following the default; the reverse move is done when
+    // the device comes back. Our own `v9pro_*` streams are never moved, they target nodes explicitly.
+    enum class StreamKind {
+        Playback,
+        Capture,
+    };
+    static void moveStreams(StreamKind kind, const QString &from, const QString &to);
+
 signals:
     void outputChanged();
     void micChanged();

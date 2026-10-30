@@ -36,6 +36,15 @@ int averagePercent(const QJsonObject &volume)
     return count ? (sum + count / 2) / count : 0;
 }
 
+QByteArray pactlSync(const QStringList &arguments)
+{
+    QProcess process;
+    process.start(QStringLiteral("pactl"), arguments);
+    if (!process.waitForFinished(2000) || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
+        return {};
+    return process.readAllStandardOutput();
+}
+
 } // namespace
 
 AudioMixer::AudioMixer(QObject *parent)
@@ -85,6 +94,36 @@ std::optional<AudioMixer::Endpoint> AudioMixer::findHeadsetEndpoint(const QByteA
         return endpoint;
     }
     return std::nullopt;
+}
+
+void AudioMixer::moveStreams(StreamKind kind, const QString &from, const QString &to)
+{
+    if (from.isEmpty() || to.isEmpty() || from == to)
+        return;
+    const bool playback = kind == StreamKind::Playback;
+    const QString devices = playback ? QStringLiteral("sinks") : QStringLiteral("sources");
+    qint64 fromIndex = -1;
+    const QJsonArray nodes = QJsonDocument::fromJson(pactlSync({QStringLiteral("-f"), QStringLiteral("json"), QStringLiteral("list"), devices})).array();
+    for (const QJsonValue &node : nodes) {
+        if (node[QStringLiteral("name")].toString() == from)
+            fromIndex = node[QStringLiteral("index")].toInteger(-1);
+    }
+    if (fromIndex < 0)
+        return;
+
+    const QString streams = playback ? QStringLiteral("sink-inputs") : QStringLiteral("source-outputs");
+    const QString deviceKey = playback ? QStringLiteral("sink") : QStringLiteral("source");
+    const QString move = playback ? QStringLiteral("move-sink-input") : QStringLiteral("move-source-output");
+    const QJsonArray list = QJsonDocument::fromJson(pactlSync({QStringLiteral("-f"), QStringLiteral("json"), QStringLiteral("list"), streams})).array();
+    for (const QJsonValue &stream : list) {
+        if (stream[deviceKey].toInteger(-2) != fromIndex)
+            continue;
+        if (stream[QStringLiteral("properties")][QStringLiteral("node.name")].toString().startsWith(QStringLiteral("v9pro_")))
+            continue;
+        const QString index = QString::number(stream[QStringLiteral("index")].toInteger());
+        pactlSync({move, index, to});
+        qCInfo(lcAudio) << "moved" << streams << index << "to" << to;
+    }
 }
 
 void AudioMixer::refresh()

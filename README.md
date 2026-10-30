@@ -15,6 +15,9 @@ the headset directly over hidraw and to PipeWire. No network access.
   and profiles in MCHOSE HUB's JSON format (PipeWire filter-chain)
 - Microphone noise suppression (WebRTC built in, RNNoise if installed)
 - Microphone monitor (PipeWire loopback; follows noise suppression)
+- System tray: closing the window keeps the app (and the audio chains) running; the tray menu shows the
+  battery, toggles the equalizer / noise suppression / monitor and quits. Start with `--hidden` to go
+  straight to the tray, e.g. from autostart. Streams are moved back to the headset before quitting.
 - Lab: HID monitor, experimental headset settings, and a voice prompt silencer that rebuilds the stock
   firmware with the mic on/off announcements silenced and flashes it over the dongle
 
@@ -23,7 +26,7 @@ See `docs/ANALYSIS.md` for the protocol and feature map.
 ## Build
 
 Requires Qt 6.8+ (Quick, QuickControls2, Widgets), CMake 3.21+, a C++20 compiler, and at runtime
-`pactl` (pipewire-pulse), `pipewire`, `pw-cli`, `pw-dump` and `amixer` (alsa-utils). Optional:
+`pactl` (pipewire-pulse), `pipewire`, `pw-cli`, `pw-dump`. Optional:
 `noise-suppression-for-voice` for RNNoise.
 
 ```bash
@@ -31,6 +34,8 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build
 ./build/src/app/v9pro-control
+# optional: binary, icon and .desktop entry
+sudo cmake --install build
 ```
 
 ## Device access without root

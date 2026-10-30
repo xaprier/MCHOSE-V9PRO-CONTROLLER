@@ -44,6 +44,7 @@ EqualizerEngine::EqualizerEngine(AudioMixer *mixer, QObject *parent)
     connect(m_filter, &PipeWireFilter::ready, this, [this] {
         emit activeChanged();
         m_mixer->setDefaultSink(pw::EqualizerSinkName);
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Playback, m_targetSink, pw::EqualizerSinkName);
     });
     // Follow the headset: start once its sink appears, rebuild if it changes, stop if it goes.
     connect(m_mixer, &AudioMixer::outputChanged, this, [this] {
@@ -59,9 +60,12 @@ EqualizerEngine::EqualizerEngine(AudioMixer *mixer, QObject *parent)
 EqualizerEngine::~EqualizerEngine()
 {
     saveSettings();
-    // The virtual sink vanishes with this process; hand the default back so audio keeps playing.
-    if (m_filter->isRunning() && m_mixer->defaultSink() == pw::EqualizerSinkName && !m_mixer->sinkName().isEmpty())
-        QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-sink"), m_mixer->sinkName()});
+    // The virtual sink vanishes with this process; hand everything back so audio keeps playing.
+    if (m_filter->isRunning() && !m_mixer->sinkName().isEmpty()) {
+        if (m_mixer->defaultSink() == pw::EqualizerSinkName)
+            QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-sink"), m_mixer->sinkName()});
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Playback, pw::EqualizerSinkName, m_mixer->sinkName());
+    }
 }
 
 bool EqualizerEngine::available() const
@@ -124,8 +128,11 @@ void EqualizerEngine::start()
 
 void EqualizerEngine::stop()
 {
-    if (m_mixer->defaultSink() == pw::EqualizerSinkName && !m_mixer->sinkName().isEmpty())
-        m_mixer->setDefaultSink(m_mixer->sinkName());
+    if (m_filter->isRunning() && !m_mixer->sinkName().isEmpty()) {
+        if (m_mixer->defaultSink() == pw::EqualizerSinkName)
+            m_mixer->setDefaultSink(m_mixer->sinkName());
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Playback, pw::EqualizerSinkName, m_mixer->sinkName());
+    }
     m_filter->stop();
     m_targetSink.clear();
     emit activeChanged();

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232833"/>
+      <stop offset="1" stop-color="#0d0f13"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a5c"/>
+      <stop offset="1" stop-color="#ff5a2a"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  <!-- headband -->
+  <path d="M60 148 V124 a68 68 0 0 1 136 0 V148" fill="none" stroke="url(#accent)" stroke-width="16" stroke-linecap="round"/>
+  <!-- ear cups -->
+  <rect x="40" y="128" width="44" height="72" rx="18" fill="url(#accent)"/>
+  <rect x="172" y="128" width="44" height="72" rx="18" fill="url(#accent)"/>
+  <rect x="52" y="142" width="20" height="44" rx="8" fill="#0d0f13" fill-opacity="0.35"/>
+  <rect x="184" y="142" width="20" height="44" rx="8" fill="#0d0f13" fill-opacity="0.35"/>
+  <!-- mic boom -->
+  <path d="M62 196 Q66 222 104 222" fill="none" stroke="#e8ecf2" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="110" cy="222" r="10" fill="#e8ecf2"/>
+  <!-- V9 mark -->
+  <path d="M98 114 L113 156 L128 114" fill="none" stroke="#e8ecf2" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="149" cy="127" r="12" fill="none" stroke="#e8ecf2" stroke-width="11"/>
+  <path d="M161 127 V140 Q161 156 144 156" fill="none" stroke="#e8ecf2" stroke-width="11" stroke-linecap="round"/>
+</svg>

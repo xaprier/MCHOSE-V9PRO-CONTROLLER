@@ -32,8 +32,11 @@ NoiseSuppressor::NoiseSuppressor(AudioMixer *mixer, QObject *parent)
 
 NoiseSuppressor::~NoiseSuppressor()
 {
-    if (active() && m_mixer->defaultSource() == pw::NoiseSourceName && !m_mixer->sourceName().isEmpty())
-        QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-source"), m_mixer->sourceName()});
+    if (active() && !m_mixer->sourceName().isEmpty()) {
+        if (m_mixer->defaultSource() == pw::NoiseSourceName)
+            QProcess::execute(QStringLiteral("pactl"), {QStringLiteral("set-default-source"), m_mixer->sourceName()});
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Capture, pw::NoiseSourceName, m_mixer->sourceName());
+    }
 }
 
 QString NoiseSuppressor::findRnnoisePlugin()
@@ -109,7 +112,10 @@ void NoiseSuppressor::start()
                                   m_engine == RNNoise ? QStringLiteral("v9pro_mic_denoise_input") : QString(), this);
     connect(m_filter, &PipeWireFilter::runningChanged, this, &NoiseSuppressor::activeChanged);
     connect(m_filter, &PipeWireFilter::errorOccurred, this, &NoiseSuppressor::setError);
-    connect(m_filter, &PipeWireFilter::ready, this, [this] { m_mixer->setDefaultSource(pw::NoiseSourceName); });
+    connect(m_filter, &PipeWireFilter::ready, this, [this] {
+        m_mixer->setDefaultSource(pw::NoiseSourceName);
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Capture, m_targetSource, pw::NoiseSourceName);
+    });
     m_filter->start(pw::noiseSuppressionConfig(static_cast<pw::NoiseEngine>(m_engine), m_targetSource, m_vadThreshold));
 }
 
@@ -117,8 +123,11 @@ void NoiseSuppressor::stop()
 {
     if (!m_filter)
         return;
-    if (m_mixer->defaultSource() == pw::NoiseSourceName && !m_mixer->sourceName().isEmpty())
-        m_mixer->setDefaultSource(m_mixer->sourceName());
+    if (!m_mixer->sourceName().isEmpty()) {
+        if (m_mixer->defaultSource() == pw::NoiseSourceName)
+            m_mixer->setDefaultSource(m_mixer->sourceName());
+        AudioMixer::moveStreams(AudioMixer::StreamKind::Capture, pw::NoiseSourceName, m_mixer->sourceName());
+    }
     m_filter->stop();
     m_filter->deleteLater();
     m_filter = nullptr;

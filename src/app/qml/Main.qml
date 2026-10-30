@@ -10,11 +10,19 @@ ApplicationWindow {
     height: 700
     minimumWidth: 820
     minimumHeight: 560
-    visible: true
     title: qsTr("V9 Pro Control")
     color: Theme.background
 
     property int currentPage: 0
+    // Set from C++ when a tray icon exists: closing then hides the window and the app keeps running.
+    property bool hideOnClose: false
+
+    onClosing: close => {
+        if (window.hideOnClose) {
+            close.accepted = false
+            window.hide()
+        }
+    }
 
     RowLayout {
         anchors.fill: parent

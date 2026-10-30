@@ -1,5 +1,14 @@
 qt_add_executable(v9pro-control
     main.cpp
+    TrayIcon.cpp
+    TrayIcon.h
+)
+
+qt_add_resources(v9pro-control "app_icon"
+    PREFIX "/icons"
+    BASE ../../packaging
+    FILES
+        ../../packaging/v9pro-control.svg
 )
 
 # Must precede qt_add_qml_module so the generated qmldir marks Theme as a singleton.
@@ -68,6 +77,12 @@ target_compile_options(v9pro-control
 
 install(TARGETS v9pro-control
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(FILES ../../packaging/v9pro-control.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+)
+install(FILES ../../packaging/v9pro-control.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 )
 
 target_compile_definitions(v9pro-control

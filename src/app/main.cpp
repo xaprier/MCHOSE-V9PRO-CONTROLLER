@@ -84,7 +84,6 @@ int main(int argc, char *argv[])
     EqualizerEngine equalizer(&mixer);
     NoiseSuppressor noiseSuppressor(&mixer);
     MicMonitor monitor(&mixer, &noiseSuppressor);
-    ReportLogModel hidLog(&headset);
     PipeWireGraph graph;
     Soundboard soundboard(&mixer);
     // Soundboard audio reaches the call by being linked into every microphone recorder.
@@ -96,7 +95,6 @@ int main(int argc, char *argv[])
     EqualizerForeign::instance = &equalizer;
     NoiseSuppressionForeign::instance = &noiseSuppressor;
     MonitorForeign::instance = &monitor;
-    HidLogForeign::instance = &hidLog;
     PatchbayForeign::instance = &graph;
     SoundboardForeign::instance = &soundboard;
 

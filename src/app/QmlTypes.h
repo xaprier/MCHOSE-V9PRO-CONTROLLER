@@ -6,7 +6,6 @@
 #include "MicMonitor.h"
 #include "NoiseSuppressor.h"
 #include "PipeWireGraph.h"
-#include "ReportLogModel.h"
 #include "Soundboard.h"
 
 #include <QQmlEngine>
@@ -101,25 +100,6 @@ public:
     static inline MicMonitor *instance = nullptr;
 
     static MicMonitor *create(QQmlEngine *, QJSEngine *engine)
-    {
-        Q_ASSERT(instance);
-        Q_ASSERT(engine->thread() == instance->thread());
-        QJSEngine::setObjectOwnership(instance, QJSEngine::CppOwnership);
-        return instance;
-    }
-};
-
-struct HidLogForeign
-{
-    Q_GADGET
-    QML_FOREIGN(ReportLogModel)
-    QML_NAMED_ELEMENT(HidLog)
-    QML_SINGLETON
-
-public:
-    static inline ReportLogModel *instance = nullptr;
-
-    static ReportLogModel *create(QQmlEngine *, QJSEngine *engine)
     {
         Q_ASSERT(instance);
         Q_ASSERT(engine->thread() == instance->thread());

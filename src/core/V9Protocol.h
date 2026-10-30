@@ -15,8 +15,6 @@ inline constexpr std::uint16_t ProductId = 0x385D;
 
 inline constexpr std::uint8_t ControlReportId = 0x55;
 inline constexpr std::uint8_t FirmwareReportId = 0xAA;
-inline constexpr std::uint8_t ConsumerReportId = 0x06;
-inline constexpr std::uint8_t TelephonyReportId = 0x07;
 
 // hidraw output/input reports are the report id followed by 63 payload bytes.
 inline constexpr int ReportSize = 64;
@@ -24,16 +22,6 @@ inline constexpr int ReportSize = 64;
 inline constexpr std::uint8_t CmdBattery = 0x65;
 inline constexpr std::uint8_t CmdModeQuery = 0x11;
 inline constexpr std::uint8_t CmdModeSet = 0x21;
-// Legacy settings family. Official for V9 TURBO; UNTESTED on V9 PRO.
-inline constexpr std::uint8_t CmdLegacy = 0x22;
-
-enum class LegacyCommand : std::uint8_t {
-    SetAutoShutdown = 0,
-    FactoryReset = 1,
-    GetAutoShutdown = 2,
-    SetPromptVolume = 3,
-    GetPromptVolume = 4,
-};
 
 enum class ChargeState : std::uint8_t {
     Unknown = 0,
@@ -76,13 +64,6 @@ QByteArray modeSetRequest(SoundMode mode);
 
 // Feature report buffer that selects which firmware version the next GET_FEATURE returns.
 QByteArray firmwareSelectFeature(FirmwareTarget target);
-
-QByteArray legacyRequest(LegacyCommand command, std::uint8_t value = 0);
-// Value byte of a legacy reply (55 22 <sub> <value>) answering `command`.
-std::optional<int> parseLegacyReply(const QByteArray &report, LegacyCommand command);
-
-// Human readable decoding of any input report from the device, for the HID monitor.
-QString describeReport(const QByteArray &report);
 
 std::optional<BatteryInfo> parseBattery(const QByteArray &report);
 std::optional<SoundMode> parseMode(const QByteArray &report);

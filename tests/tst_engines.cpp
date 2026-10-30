@@ -177,15 +177,6 @@ private slots:
             out.write(text.toUtf8());
         }
     }
-
-    void legacyProtocol()
-    {
-        QCOMPARE(proto::legacyRequest(proto::LegacyCommand::GetPromptVolume).first(4), QByteArray::fromHex("55220400"));
-        QCOMPARE(*proto::parseLegacyReply(QByteArray::fromHex("55220407"), proto::LegacyCommand::GetPromptVolume), 7);
-        QVERIFY(!proto::parseLegacyReply(QByteArray::fromHex("55220207"), proto::LegacyCommand::GetPromptVolume));
-
-        QVERIFY(proto::describeReport(QByteArray::fromHex("0701")).startsWith(QStringLiteral("TELEPHONY")));
-    }
 };
 
 QTEST_GUILESS_MAIN(TestEngines)

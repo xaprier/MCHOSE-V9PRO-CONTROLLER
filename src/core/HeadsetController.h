@@ -30,8 +30,6 @@ class HeadsetController : public QObject
     Q_PROPERTY(QString headsetFirmwareRaw READ headsetFirmwareRaw NOTIFY firmwareChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     // Untested on V9 PRO; -1 until read successfully.
-    Q_PROPERTY(int autoShutdown READ autoShutdown NOTIFY experimentalChanged)
-    Q_PROPERTY(int promptVolume READ promptVolume NOTIFY experimentalChanged)
 
 public:
     enum class ChargeState {
@@ -66,22 +64,10 @@ public:
     QString headsetFirmwareRaw() const { return m_headsetFirmwareRaw; }
     QString lastError() const { return m_lastError; }
 
-    int autoShutdown() const { return m_autoShutdown; }
-    int promptVolume() const { return m_promptVolume; }
-
     void setSoundMode(int mode);
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void readFirmware();
-
-    // Experimental legacy commands. Each reports its outcome through experimentalResult.
-    Q_INVOKABLE void readAutoShutdown();
-    Q_INVOKABLE void readPromptVolume();
-    Q_INVOKABLE void writeAutoShutdown(int value);
-    Q_INVOKABLE void writePromptVolume(int value);
-    // Sent only when `confirmation` is exactly "RESET".
-    Q_INVOKABLE bool factoryReset(const QString &confirmation);
-
 
 signals:
     void connectionChanged();
@@ -89,10 +75,6 @@ signals:
     void soundModeChanged();
     void firmwareChanged();
     void lastErrorChanged();
-    void experimentalChanged();
-    void experimentalResult(const QString &command, bool answered, const QString &detail);
-    // Every report in and out, for the HID monitor. `outgoing` marks what this app sent.
-    void rawReport(const QByteArray &report, bool outgoing);
 
 private:
     struct Request {
@@ -109,7 +91,6 @@ private:
     void processNext();
     void finishCurrent(bool answered);
     void onTimeout();
-    void sendLegacy(const QString &label, int command, int value, bool expectReply);
     void readFirmwareStep(int target);
     void collectFirmware(int target, int attempt);
 
@@ -136,6 +117,4 @@ private:
     QString m_dongleFirmwareRaw;
     QString m_headsetFirmwareRaw;
     QString m_lastError;
-    int m_autoShutdown = -1;
-    int m_promptVolume = -1;
 };

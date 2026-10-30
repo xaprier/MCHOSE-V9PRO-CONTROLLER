@@ -27,8 +27,6 @@ qt_add_library(v9core STATIC
     PipeWireGraphState.cpp
     PipeWireGraphState.h
     PipeWireFilter.h
-    ReportLogModel.cpp
-    ReportLogModel.h
     Soundboard.cpp
     Soundboard.h
     V9Protocol.cpp

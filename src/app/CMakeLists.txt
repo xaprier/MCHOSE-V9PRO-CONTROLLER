@@ -49,11 +49,9 @@ qt_add_qml_module(v9pro-control
         qml/pages/HomePage.qml
         qml/pages/PatchbayPage.qml
         qml/pages/SoundboardPage.qml
-        qml/pages/LabPage.qml
     RESOURCES
         qml/icons/battery.svg
         qml/icons/equalizer.svg
-        qml/icons/flask.svg
         qml/icons/gamepad.svg
         qml/icons/headset.svg
         qml/icons/info.svg

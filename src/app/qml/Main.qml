@@ -109,13 +109,6 @@ ApplicationWindow {
                     onClicked: window.currentPage = 4
                     Layout.fillWidth: true
                 }
-                NavButton {
-                    text: qsTr("Lab")
-                    icon.source: Qt.resolvedUrl("icons/flask.svg")
-                    checked: window.currentPage === 5
-                    onClicked: window.currentPage = 5
-                    Layout.fillWidth: true
-                }
 
                 Item {
                     Layout.fillHeight: true
@@ -142,7 +135,6 @@ ApplicationWindow {
             PatchbayPage {}
             SoundboardPage {}
             DevicePage {}
-            LabPage {}
         }
     }
 }

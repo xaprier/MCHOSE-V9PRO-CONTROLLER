@@ -6,7 +6,6 @@
 #include <QTimer>
 
 #include <iterator>
-#include <memory>
 
 namespace proto = v9::protocol;
 
@@ -52,9 +51,6 @@ HeadsetController::HeadsetController(QObject *parent)
     connect(m_scanTimer, &QTimer::timeout, this, &HeadsetController::scan);
     connect(m_pollTimer, &QTimer::timeout, this, &HeadsetController::refresh);
     connect(m_replyTimer, &QTimer::timeout, this, &HeadsetController::onTimeout);
-    // rawReport first: experimental commands capture their reply from it before onReport
-    // completes the request.
-    connect(m_device, &HidRawDevice::reportReceived, this, [this](const QByteArray &report) { emit rawReport(report, false); });
     connect(m_device, &HidRawDevice::reportReceived, this, &HeadsetController::onReport);
     connect(m_device, &HidRawDevice::disconnected, this, &HeadsetController::onDisconnected);
 
@@ -234,7 +230,6 @@ void HeadsetController::processNext()
         finishCurrent(false);
         return;
     }
-    emit rawReport(request.data, true);
 
     if (request.replyCommand < 0) {
         QTimer::singleShot(InterRequestGapMs, this, [this] { finishCurrent(true); });
@@ -270,73 +265,6 @@ void HeadsetController::onTimeout()
         return;
     }
     finishCurrent(false);
-}
-
-void HeadsetController::readAutoShutdown()
-{
-    sendLegacy(QStringLiteral("read auto shutdown"), int(proto::LegacyCommand::GetAutoShutdown), 0, true);
-}
-
-void HeadsetController::readPromptVolume()
-{
-    sendLegacy(QStringLiteral("read prompt volume"), int(proto::LegacyCommand::GetPromptVolume), 0, true);
-}
-
-void HeadsetController::writeAutoShutdown(int value)
-{
-    sendLegacy(QStringLiteral("set auto shutdown %1").arg(value), int(proto::LegacyCommand::SetAutoShutdown), qBound(0, value, 255), false);
-    QTimer::singleShot(300, this, &HeadsetController::readAutoShutdown);
-}
-
-void HeadsetController::writePromptVolume(int value)
-{
-    sendLegacy(QStringLiteral("set prompt volume %1").arg(value), int(proto::LegacyCommand::SetPromptVolume), qBound(0, value, 255), false);
-    QTimer::singleShot(300, this, &HeadsetController::readPromptVolume);
-}
-
-bool HeadsetController::factoryReset(const QString &confirmation)
-{
-    if (confirmation != QLatin1String("RESET"))
-        return false;
-    sendLegacy(QStringLiteral("factory reset"), int(proto::LegacyCommand::FactoryReset), 0, false);
-    return true;
-}
-
-void HeadsetController::sendLegacy(const QString &label, int command, int value, bool expectReply)
-{
-    if (!m_device->isOpen()) {
-        emit experimentalResult(label, false, tr("Dongle not connected"));
-        return;
-    }
-
-    const auto legacy = static_cast<proto::LegacyCommand>(command);
-    auto pending = std::make_shared<QByteArray>();
-    // The reply is captured from the raw stream because legacy replies carry the sub-command,
-    // which the queue's single-byte matching cannot distinguish.
-    auto capture = connect(this, &HeadsetController::rawReport, this, [pending, legacy](const QByteArray &report, bool outgoing) {
-        if (!outgoing && pending->isEmpty() && proto::parseLegacyReply(report, legacy))
-            *pending = report;
-    });
-
-    enqueue({proto::legacyRequest(legacy, std::uint8_t(value)), expectReply ? proto::CmdLegacy : -1, 1,
-             [this, label, legacy, pending, capture, expectReply](bool answered) {
-                 disconnect(capture);
-                 if (!expectReply) {
-                     emit experimentalResult(label, answered, answered ? tr("sent (no acknowledgement expected)") : tr("write failed"));
-                     return;
-                 }
-                 const auto value = proto::parseLegacyReply(*pending, legacy);
-                 if (!value) {
-                     emit experimentalResult(label, false, tr("no reply — command probably unsupported on this firmware"));
-                     return;
-                 }
-                 if (legacy == proto::LegacyCommand::GetAutoShutdown)
-                     m_autoShutdown = *value;
-                 else if (legacy == proto::LegacyCommand::GetPromptVolume)
-                     m_promptVolume = *value;
-                 emit experimentalChanged();
-                 emit experimentalResult(label, true, tr("reply %1 → value %2").arg(QString::fromLatin1(pending->first(6).toHex(' '))).arg(*value));
-             }});
 }
 
 void HeadsetController::setHeadsetOnline(bool online)

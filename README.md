@@ -17,6 +17,8 @@ the headset directly over hidraw and to PipeWire. No network access.
 - Microphone monitor (PipeWire loopback; follows noise suppression)
 - Patchbay: qjackctl-style graph of PipeWire audio; drag cables between programs and devices (e.g. a
   browser into Discord's microphone), optionally re-creating them when programs restart
+- Soundboard: pads from a folder, played into every program recording the microphone (bypassing noise
+  suppression), optionally heard in the headset
 - System tray: closing the window keeps the app (and the audio chains) running; the tray menu shows the
   battery, toggles the equalizer / noise suppression / monitor and quits. Start with `--hidden` to go
   straight to the tray, e.g. from autostart. Streams are moved back to the headset before quitting.

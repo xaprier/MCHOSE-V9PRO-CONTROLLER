@@ -56,6 +56,10 @@ public:
     // remembered links and box positions, and sends every program stream to the default devices.
     Q_INVOKABLE void resetToDefaults();
 
+    // Keeps the monitor of this sink linked into every program recording a microphone (the
+    // soundboard); empty turns it off.
+    void setFeedSink(const QString &sinkName);
+
 signals:
     void graphChanged();
     void restoreLinksChanged();
@@ -91,6 +95,7 @@ private:
     };
     QList<ResetStep> m_resetQueue;
     QString m_resetModuleId;
+    QString m_feedSink;
     bool m_restore = false;
     bool m_quitting = false;
     QString m_error;

@@ -96,17 +96,24 @@ ApplicationWindow {
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Device")
-                    icon.source: Qt.resolvedUrl("icons/info.svg")
+                    text: qsTr("Soundboard")
+                    icon.source: Qt.resolvedUrl("icons/soundboard.svg")
                     checked: window.currentPage === 3
                     onClicked: window.currentPage = 3
                     Layout.fillWidth: true
                 }
                 NavButton {
-                    text: qsTr("Lab")
-                    icon.source: Qt.resolvedUrl("icons/flask.svg")
+                    text: qsTr("Device")
+                    icon.source: Qt.resolvedUrl("icons/info.svg")
                     checked: window.currentPage === 4
                     onClicked: window.currentPage = 4
+                    Layout.fillWidth: true
+                }
+                NavButton {
+                    text: qsTr("Lab")
+                    icon.source: Qt.resolvedUrl("icons/flask.svg")
+                    checked: window.currentPage === 5
+                    onClicked: window.currentPage = 5
                     Layout.fillWidth: true
                 }
 
@@ -133,6 +140,7 @@ ApplicationWindow {
             }
             EqualizerPage {}
             PatchbayPage {}
+            SoundboardPage {}
             DevicePage {}
             LabPage {}
         }

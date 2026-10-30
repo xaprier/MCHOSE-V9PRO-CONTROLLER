@@ -37,6 +37,7 @@ qt_add_qml_module(v9pro-control
         qml/components/ProfileItem.qml
         qml/components/SectionHeader.qml
         qml/components/SegmentedControl.qml
+        qml/components/SoundTile.qml
         qml/components/StatusPill.qml
         qml/components/StyledMenu.qml
         qml/components/StyledComboBox.qml
@@ -47,6 +48,7 @@ qt_add_qml_module(v9pro-control
         qml/pages/EqualizerPage.qml
         qml/pages/HomePage.qml
         qml/pages/PatchbayPage.qml
+        qml/pages/SoundboardPage.qml
         qml/pages/LabPage.qml
     RESOURCES
         qml/icons/battery.svg
@@ -59,6 +61,7 @@ qt_add_qml_module(v9pro-control
         qml/icons/mic-off.svg
         qml/icons/music.svg
         qml/icons/patch.svg
+        qml/icons/soundboard.svg
         qml/icons/target.svg
         qml/icons/volume.svg
         qml/icons/volume-off.svg

@@ -34,4 +34,10 @@ struct LinkRule {
 // between two internal (v9pro_*) nodes and pairs listed in `attempted` as "out:in".
 QList<std::pair<quint32, quint32>> missingLinks(const GraphState &state, const QList<LinkRule> &rules, const QSet<QString> &attempted);
 
+// Links that feed the monitor of sink `sinkName` into every program recording a microphone (an
+// Audio/Source node), the soundboard path. Recorders of sink monitors (visualisers, desktop audio
+// capture) and this app's own streams are left alone. A recorder input named like a sink channel
+// (FL, FR) gets that channel; any other input (MONO) gets all of them.
+QList<std::pair<quint32, quint32>> feedLinks(const GraphState &state, const QString &sinkName);
+
 } // namespace v9::pw

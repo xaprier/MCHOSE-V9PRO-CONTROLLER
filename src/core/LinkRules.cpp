@@ -2,6 +2,8 @@
 
 #include <QStringList>
 
+#include <algorithm>
+
 namespace v9::pw {
 
 QString nodeKey(const GraphNode &node)
@@ -55,6 +57,41 @@ QList<std::pair<quint32, quint32>> missingLinks(const GraphState &state, const Q
         }
     }
     return missing;
+}
+
+QList<std::pair<quint32, quint32>> feedLinks(const GraphState &state, const QString &sinkName)
+{
+    QList<const GraphPort *> monitors;
+    for (const GraphPort &port : state.ports()) {
+        if (port.output && port.monitor && state.nodes().value(port.nodeId).name == sinkName)
+            monitors.append(&port);
+    }
+    if (monitors.isEmpty())
+        return {};
+
+    QSet<std::pair<quint32, quint32>> existing;
+    QSet<quint32> recordsMicrophone;
+    for (const GraphLink &link : state.links()) {
+        existing.insert({link.outPort, link.inPort});
+        const GraphNode &from = state.nodes().value(state.ports().value(link.outPort).nodeId);
+        if (from.mediaClass.startsWith(QLatin1String("Audio/Source")))
+            recordsMicrophone.insert(state.ports().value(link.inPort).nodeId);
+    }
+
+    QList<std::pair<quint32, quint32>> links;
+    for (const GraphPort &in : state.ports()) {
+        const GraphNode &node = state.nodes().value(in.nodeId);
+        if (in.output || node.internal || !node.mediaClass.startsWith(QLatin1String("Stream/Input"))
+            || !recordsMicrophone.contains(node.id))
+            continue;
+        const bool namedChannel = std::any_of(monitors.cbegin(), monitors.cend(), [&](const GraphPort *m) { return m->name == in.name; });
+        for (const GraphPort *monitor : std::as_const(monitors)) {
+            const std::pair pair{monitor->id, in.id};
+            if ((!namedChannel || monitor->name == in.name) && !existing.contains(pair))
+                links.append(pair);
+        }
+    }
+    return links;
 }
 
 } // namespace v9::pw

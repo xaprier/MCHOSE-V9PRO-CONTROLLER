@@ -202,19 +202,35 @@ void PipeWireGraph::rebuild()
 
     qCDebug(lcGraph) << "graph:" << m_nodeList.size() << "nodes," << m_linkList.size() << "links";
     emit graphChanged();
-    if (m_restore && !m_rules.isEmpty())
+    if ((m_restore && !m_rules.isEmpty()) || !m_feedSink.isEmpty())
         m_restoreDebounce->start();
 }
 
 void PipeWireGraph::applyRules()
 {
-    if (!m_restore)
-        return;
-    for (const auto &[out, in] : pw::missingLinks(m_state, m_rules, m_attempted)) {
+    QList<std::pair<quint32, quint32>> wanted;
+    if (m_restore)
+        wanted = pw::missingLinks(m_state, m_rules, m_attempted);
+    if (!m_feedSink.isEmpty()) {
+        for (const auto &pair : pw::feedLinks(m_state, m_feedSink)) {
+            if (!m_attempted.contains(QStringLiteral("%1:%2").arg(pair.first).arg(pair.second)) && !wanted.contains(pair))
+                wanted.append(pair);
+        }
+    }
+    for (const auto &[out, in] : std::as_const(wanted)) {
         m_attempted.insert(QStringLiteral("%1:%2").arg(out).arg(in));
-        qCInfo(lcGraph) << "restoring link" << out << "->" << in;
+        qCInfo(lcGraph) << "linking" << out << "->" << in;
         runLink({QString::number(out), QString::number(in)});
     }
+}
+
+void PipeWireGraph::setFeedSink(const QString &sinkName)
+{
+    if (m_feedSink == sinkName)
+        return;
+    m_feedSink = sinkName;
+    if (!sinkName.isEmpty())
+        m_restoreDebounce->start();
 }
 
 void PipeWireGraph::setRestoreLinks(bool on)

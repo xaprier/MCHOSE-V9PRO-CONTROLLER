@@ -1,3 +1,4 @@
+#include "FilterChainConfig.h"
 #include "QmlTypes.h"
 #include "TrayIcon.h"
 
@@ -85,6 +86,11 @@ int main(int argc, char *argv[])
     MicMonitor monitor(&mixer, &noiseSuppressor);
     ReportLogModel hidLog(&headset);
     PipeWireGraph graph;
+    Soundboard soundboard(&mixer);
+    // Soundboard audio reaches the call by being linked into every microphone recorder.
+    const auto feedSoundboard = [&] { graph.setFeedSink(soundboard.active() ? v9::pw::SoundboardSinkName : QString()); };
+    QObject::connect(&soundboard, &Soundboard::activeChanged, &graph, feedSoundboard);
+    feedSoundboard();
     HeadsetForeign::instance = &headset;
     MixerForeign::instance = &mixer;
     EqualizerForeign::instance = &equalizer;
@@ -92,6 +98,7 @@ int main(int argc, char *argv[])
     MonitorForeign::instance = &monitor;
     HidLogForeign::instance = &hidLog;
     PatchbayForeign::instance = &graph;
+    SoundboardForeign::instance = &soundboard;
 
     // Hand the default devices and streams back first and quit a little later; the destructors
     // then only tear down nodes nothing uses any more.

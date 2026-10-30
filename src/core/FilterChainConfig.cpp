@@ -224,6 +224,37 @@ QString micMonitorConfig(const QString &source, const QString &sink, double gain
         .arg(num(gain), quoted(source), quoted(MonitorNodeName), quoted(sink));
 }
 
+QString soundboardConfig(const QString &listenSink)
+{
+    const QString target = listenSink.isEmpty() ? QString() : QStringLiteral("        target.object = %1\n").arg(quoted(listenSink));
+    // Lowest priorities so the session manager never picks the soundboard as the default output.
+    return QStringLiteral(R"CFG(context.modules = [
+  { name = libpipewire-module-loopback
+    args = {
+      node.description = "V9 PRO Soundboard"
+      audio.position = [ MONO ]
+      capture.props = {
+        node.name = %1
+        media.class = Audio/Sink
+        priority.session = 0
+        priority.driver = 0
+      }
+      playback.props = {
+        node.name = %2
+%3        node.dont-reconnect = true
+      }
+    }
+  }
+]
+)CFG")
+        .arg(quoted(SoundboardSinkName), quoted(SoundboardListenNodeName), target);
+}
+
+QString soundboardListenParams(bool listen)
+{
+    return listen ? QStringLiteral("{ mute: false }") : QStringLiteral("{ mute: true }");
+}
+
 QString micMonitorParams(double gain)
 {
     return QStringLiteral("{ params = [ \"monitor:Gain 1\" %1 ] }").arg(num(gain));

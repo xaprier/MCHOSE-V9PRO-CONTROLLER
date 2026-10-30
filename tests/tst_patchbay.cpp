@@ -1,3 +1,4 @@
+#include "FilterChainConfig.h"
 #include "GraphLayout.h"
 #include "LinkRules.h"
 #include "PipeWireGraphState.h"
@@ -46,6 +47,33 @@ const char *RuleFixture = R"([
   {"id":41,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":40,"port.name":"playback_FL"}}},
   {"id":50,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"v9pro_equalizer_output","media.class":"Stream/Output/Audio"}}},
   {"id":51,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":50,"port.name":"output_FL"}}}
+])";
+
+// Soundboard sink with monitor FL/FR; microphone source; Discord (mono) and OBS (stereo) record the
+// microphone; cava records the headset sink monitor; our monitor loopback records the mic too.
+const char *FeedFixture = R"([
+  {"id":1,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"v9pro_soundboard","media.class":"Audio/Sink"}}},
+  {"id":2,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":1,"port.name":"monitor_FL","port.monitor":true}}},
+  {"id":3,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":1,"port.name":"monitor_FR","port.monitor":true}}},
+  {"id":4,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":1,"port.name":"playback_FL"}}},
+  {"id":10,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"alsa_input.usb","media.class":"Audio/Source"}}},
+  {"id":11,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":10,"port.name":"capture_MONO"}}},
+  {"id":20,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"alsa_output.usb","media.class":"Audio/Sink"}}},
+  {"id":21,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":20,"port.name":"monitor_FL","port.monitor":true}}},
+  {"id":30,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"Discord","media.class":"Stream/Input/Audio"}}},
+  {"id":31,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":30,"port.name":"input_MONO"}}},
+  {"id":40,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"OBS","media.class":"Stream/Input/Audio"}}},
+  {"id":41,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":40,"port.name":"input_FL"}}},
+  {"id":42,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":40,"port.name":"input_FR"}}},
+  {"id":50,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"cava","media.class":"Stream/Input/Audio"}}},
+  {"id":51,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":50,"port.name":"input_FL"}}},
+  {"id":60,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"v9pro_mic_monitor_input","media.class":"Stream/Input/Audio"}}},
+  {"id":61,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":60,"port.name":"input_MONO"}}},
+  {"id":100,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":31}},
+  {"id":101,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":41}},
+  {"id":102,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":42}},
+  {"id":103,"type":"PipeWire:Interface:Link","info":{"output-port-id":21,"input-port-id":51}},
+  {"id":104,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":61}}
 ])";
 
 } // namespace
@@ -258,6 +286,46 @@ private slots:
         std::stable_sort(names.begin(), names.end(), [](const QString &a, const QString &b) { return pw::channelOrder(a) < pw::channelOrder(b); });
         const QStringList expected{QStringLiteral("FL"), QStringLiteral("FR"), QStringLiteral("AUX0"), QStringLiteral("mon FL"), QStringLiteral("mon FR")};
         QCOMPARE(names, expected);
+    }
+
+    void soundboardFeedsMicrophoneRecorders()
+    {
+        pw::GraphState state;
+        state.apply(parse(FeedFixture));
+        auto pairs = pw::feedLinks(state, QStringLiteral("v9pro_soundboard"));
+        std::sort(pairs.begin(), pairs.end());
+        // Discord's mono input gets both channels, OBS gets FL/FR; cava (records a sink monitor) and
+        // our own monitor loopback get nothing.
+        const QList<std::pair<quint32, quint32>> expected{{2, 31}, {2, 41}, {3, 31}, {3, 42}};
+        QCOMPARE(pairs, expected);
+    }
+
+    void soundboardFeedSkipsExistingLinks()
+    {
+        pw::GraphState state;
+        state.apply(parse(FeedFixture));
+        state.apply(parse(R"([{"id":105,"type":"PipeWire:Interface:Link","info":{"output-port-id":2,"input-port-id":31}}])"));
+        auto pairs = pw::feedLinks(state, QStringLiteral("v9pro_soundboard"));
+        std::sort(pairs.begin(), pairs.end());
+        const QList<std::pair<quint32, quint32>> expected{{2, 41}, {3, 31}, {3, 42}};
+        QCOMPARE(pairs, expected);
+        QVERIFY(pw::feedLinks(state, QStringLiteral("missing")).isEmpty());
+    }
+
+    void soundboardConfig()
+    {
+        // A loopback whose capture side is the virtual sink: a client process cannot export a plain
+        // null sink, and the playback side doubles as "hear it myself".
+        const QString config = pw::soundboardConfig(QStringLiteral("alsa_output.usb-X"));
+        QVERIFY(config.contains(QStringLiteral("libpipewire-module-loopback")));
+        QVERIFY(config.contains(QStringLiteral("node.name = \"v9pro_soundboard\"")));
+        QVERIFY(config.contains(QStringLiteral("media.class = Audio/Sink")));
+        QVERIFY(config.contains(QStringLiteral("audio.position = [ MONO ]")));
+        QVERIFY(config.contains(QStringLiteral("node.name = \"v9pro_soundboard_listen\"")));
+        QVERIFY(config.contains(QStringLiteral("target.object = \"alsa_output.usb-X\"")));
+        QVERIFY(!config.contains(QStringLiteral("context.objects")));
+        QCOMPARE(pw::soundboardListenParams(false), QStringLiteral("{ mute: true }"));
+        QCOMPARE(pw::soundboardListenParams(true), QStringLiteral("{ mute: false }"));
     }
 };
 

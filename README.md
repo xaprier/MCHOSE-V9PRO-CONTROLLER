@@ -11,8 +11,8 @@ the headset directly over hidraw and to PipeWire. No network access.
 - On-device sound mode: Game 1, Game 2, Music
 - Firmware versions of dongle and headset
 - Headphone and microphone volume / mute (PipeWire)
-- 10-band equalizer with draggable response curve, bass / brightening / vocal clarity, auto preamp,
-  and profiles in MCHOSE HUB's JSON format (PipeWire filter-chain)
+- 10-band equalizer with MCHOSE HUB style presets and custom profiles (HUB's JSON format), auto preamp,
+  and bass / brightening / vocal clarity enhancements (PipeWire filter-chain)
 - Microphone noise suppression (WebRTC built in, RNNoise if installed)
 - Microphone monitor (PipeWire loopback; follows noise suppression)
 - Patchbay: qjackctl-style graph of PipeWire audio; drag cables between programs and devices (e.g. a
@@ -22,13 +22,13 @@ the headset directly over hidraw and to PipeWire. No network access.
 - System tray: closing the window keeps the app (and the audio chains) running; the tray menu shows the
   battery, toggles the equalizer / noise suppression / monitor and quits. Start with `--hidden` to go
   straight to the tray, e.g. from autostart. Streams are moved back to the headset before quitting.
-- Lab: HID monitor and experimental headset settings
 
 ## Build
 
 Requires Qt 6.8+ (Quick, QuickControls2, Widgets), CMake 3.21+, a C++20 compiler, and at runtime
-`pactl` (pipewire-pulse), `pipewire`, `pw-cli`, `pw-dump`. Optional:
-`noise-suppression-for-voice` for RNNoise.
+`pactl` (pipewire-pulse), `pipewire`, `pw-cli`, `pw-dump`, `pw-link`, `pw-cat` / `pw-play`. Optional:
+`noise-suppression-for-voice` for RNNoise, `ffmpeg` so the soundboard can play every format (Ogg Opus
+included).
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release

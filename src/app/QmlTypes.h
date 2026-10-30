@@ -5,6 +5,7 @@
 #include "HeadsetController.h"
 #include "MicMonitor.h"
 #include "NoiseSuppressor.h"
+#include "PipeWireGraph.h"
 #include "ReportLogModel.h"
 
 #include <QQmlEngine>
@@ -118,6 +119,25 @@ public:
     static inline ReportLogModel *instance = nullptr;
 
     static ReportLogModel *create(QQmlEngine *, QJSEngine *engine)
+    {
+        Q_ASSERT(instance);
+        Q_ASSERT(engine->thread() == instance->thread());
+        QJSEngine::setObjectOwnership(instance, QJSEngine::CppOwnership);
+        return instance;
+    }
+};
+
+struct PatchbayForeign
+{
+    Q_GADGET
+    QML_FOREIGN(PipeWireGraph)
+    QML_NAMED_ELEMENT(Patchbay)
+    QML_SINGLETON
+
+public:
+    static inline PipeWireGraph *instance = nullptr;
+
+    static PipeWireGraph *create(QQmlEngine *, QJSEngine *engine)
     {
         Q_ASSERT(instance);
         Q_ASSERT(engine->thread() == instance->thread());

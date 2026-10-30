@@ -84,12 +84,14 @@ int main(int argc, char *argv[])
     NoiseSuppressor noiseSuppressor(&mixer);
     MicMonitor monitor(&mixer, &noiseSuppressor);
     ReportLogModel hidLog(&headset);
+    PipeWireGraph graph;
     HeadsetForeign::instance = &headset;
     MixerForeign::instance = &mixer;
     EqualizerForeign::instance = &equalizer;
     NoiseSuppressionForeign::instance = &noiseSuppressor;
     MonitorForeign::instance = &monitor;
     HidLogForeign::instance = &hidLog;
+    PatchbayForeign::instance = &graph;
 
     // Hand the default devices and streams back first and quit a little later; the destructors
     // then only tear down nodes nothing uses any more.

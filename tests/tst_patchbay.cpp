@@ -1,3 +1,4 @@
+#include "LinkRules.h"
 #include "PipeWireGraphState.h"
 
 #include <QJsonArray>
@@ -28,6 +29,22 @@ const char *Fixture = R"([
   {"id":121,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":120,"port.name":"output_FL","format.dsp":"32 bit float mono audio"}}},
   {"id":122,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":120,"port.name":"output_FR","format.dsp":"32 bit float mono audio"}}},
   {"id":130,"type":"PipeWire:Interface:Link","info":{"output-port-id":121,"input-port-id":61}}
+])";
+
+// Two Zen playback streams (FL/FR each), Discord recording stream (MONO), and the internal EQ sink
+// with its output stream; no links.
+const char *RuleFixture = R"([
+  {"id":10,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"Zen","media.class":"Stream/Output/Audio"}}},
+  {"id":11,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":10,"port.name":"output_FL"}}},
+  {"id":12,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":10,"port.name":"output_FR"}}},
+  {"id":20,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"Zen","media.class":"Stream/Output/Audio"}}},
+  {"id":21,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":20,"port.name":"output_FL"}}},
+  {"id":30,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"Discord","media.class":"Stream/Input/Audio"}}},
+  {"id":31,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":30,"port.name":"input_MONO"}}},
+  {"id":40,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"v9pro_equalizer","media.class":"Audio/Sink"}}},
+  {"id":41,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":40,"port.name":"playback_FL"}}},
+  {"id":50,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"v9pro_equalizer_output","media.class":"Stream/Output/Audio"}}},
+  {"id":51,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":50,"port.name":"output_FL"}}}
 ])";
 
 } // namespace
@@ -104,6 +121,63 @@ private slots:
         QCOMPARE(pw::shortPortName(QStringLiteral("output_FL")), QStringLiteral("FL"));
         QCOMPARE(pw::shortPortName(QStringLiteral("input_MONO")), QStringLiteral("MONO"));
         QCOMPARE(pw::shortPortName(QStringLiteral("In 1")), QStringLiteral("In 1"));
+    }
+
+    void ruleMatchesEveryStreamWithKey()
+    {
+        pw::GraphState state;
+        state.apply(parse(RuleFixture));
+        const QList<pw::LinkRule> rules{{QStringLiteral("Zen"), QStringLiteral("FL"), QStringLiteral("Discord"), QStringLiteral("MONO")}};
+        auto pairs = pw::missingLinks(state, rules, {});
+        std::sort(pairs.begin(), pairs.end());
+        const QList<std::pair<quint32, quint32>> expected{{11, 31}, {21, 31}};
+        QCOMPARE(pairs, expected);
+    }
+
+    void existingLinkNotRepeated()
+    {
+        pw::GraphState state;
+        state.apply(parse(RuleFixture));
+        state.apply(parse(R"([{"id":99,"type":"PipeWire:Interface:Link","info":{"output-port-id":11,"input-port-id":31}}])"));
+        const QList<pw::LinkRule> rules{{QStringLiteral("Zen"), QStringLiteral("FL"), QStringLiteral("Discord"), QStringLiteral("MONO")}};
+        const QList<std::pair<quint32, quint32>> expected{{21, 31}};
+        QCOMPARE(pw::missingLinks(state, rules, {}), expected);
+    }
+
+    void internalPairsIgnored()
+    {
+        pw::GraphState state;
+        state.apply(parse(RuleFixture));
+        const QList<pw::LinkRule> rules{
+            {QStringLiteral("v9pro_equalizer_output"), QStringLiteral("FL"), QStringLiteral("v9pro_equalizer"), QStringLiteral("FL")}};
+        QVERIFY(pw::missingLinks(state, rules, {}).isEmpty());
+    }
+
+    void attemptedSkipped()
+    {
+        pw::GraphState state;
+        state.apply(parse(RuleFixture));
+        const QList<pw::LinkRule> rules{{QStringLiteral("Zen"), QStringLiteral("FL"), QStringLiteral("Discord"), QStringLiteral("MONO")}};
+        const QList<std::pair<quint32, quint32>> expected{{21, 31}};
+        QCOMPARE(pw::missingLinks(state, rules, {QStringLiteral("11:31")}), expected);
+    }
+
+    void ruleRoundTripsString()
+    {
+        const pw::LinkRule rule{QStringLiteral("Zen"), QStringLiteral("FL"), QStringLiteral("Discord"), QStringLiteral("MONO")};
+        QCOMPARE(pw::LinkRule::fromString(rule.toString()), rule);
+        QVERIFY(!pw::LinkRule::fromString(QStringLiteral("broken")));
+    }
+
+    void nodeKeyFallsBackToLabel()
+    {
+        pw::GraphNode named;
+        named.name = QStringLiteral("Zen");
+        QCOMPARE(pw::nodeKey(named), QStringLiteral("Zen"));
+        pw::GraphNode unnamed;
+        unnamed.label = QStringLiteral("Speaker");
+        unnamed.mediaClass = QStringLiteral("Audio/Sink");
+        QCOMPARE(pw::nodeKey(unnamed), QStringLiteral("Speaker|Audio/Sink"));
     }
 };
 

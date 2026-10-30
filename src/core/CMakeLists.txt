@@ -13,6 +13,8 @@ qt_add_library(v9core STATIC
     HeadsetController.h
     HidRawDevice.cpp
     HidRawDevice.h
+    LinkRules.cpp
+    LinkRules.h
     MicMonitor.cpp
     MicMonitor.h
     NoiseSuppressor.cpp

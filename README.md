@@ -11,15 +11,20 @@ the headset directly over hidraw and to PipeWire. No network access.
 - On-device sound mode: Game 1, Game 2, Music
 - Firmware versions of dongle and headset
 - Headphone and microphone volume / mute (PipeWire)
-- Sidetone level (ALSA, experimental)
+- 10-band equalizer with draggable response curve, bass / brightening / vocal clarity, auto preamp,
+  and profiles in MCHOSE HUB's JSON format (PipeWire filter-chain)
+- Microphone noise suppression (WebRTC built in, RNNoise if installed)
+- Microphone monitor (software loopback, or the dongle's hardware control — experimental)
+- Lab: HID monitor, experimental headset settings, and a voice prompt silencer that rebuilds the stock
+  firmware with the mic on/off announcements silenced and flashes it over the dongle
 
-Planned: 10-band equalizer and effects via PipeWire filter-chain, Hub-compatible EQ profiles,
-microphone noise suppression, tray icon. See `docs/ANALYSIS.md` for the full protocol and feature map.
+See `docs/ANALYSIS.md` for the protocol and feature map.
 
 ## Build
 
 Requires Qt 6.8+ (Quick, QuickControls2, Widgets), CMake 3.21+, a C++20 compiler, and at runtime
-`pactl` (pipewire-pulse) and `amixer` (alsa-utils).
+`pactl` (pipewire-pulse), `pipewire`, `pw-cli`, `pw-dump` and `amixer` (alsa-utils). Optional:
+`noise-suppression-for-voice` for RNNoise.
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release

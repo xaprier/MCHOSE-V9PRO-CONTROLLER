@@ -78,7 +78,7 @@ NOTIFY: cihaz butonla mod değişince RX 55 11 <mode> gönderiyor
   yani V9 PRO için resmi bir "prompt kapat" HID komutu yok. (G9 V2 ve K20 ailesinde `21 02 <0|1>` var,
   V9 PRO'da denenmedi — bkz. §2.5.)
 
-### 2.3 Firmware sürümü — cevap alındı, çözümleme TODO
+### 2.3 Firmware sürümü — DOĞRULANDI (2026-10-30)
 
 ```
 SET_FEATURE  AA 01 <target> 00...(63)   target: 1=dongle, 0=headset (Hub sRe())
@@ -98,9 +98,10 @@ Python örneği farklı ofset kullanıyor (`d[8]d[9]` dongle, `d[10]d[11]` heads
 sürümler: dongle `0008`, headset `0029`. Hangi yorumun doğru olduğu bir OTA sonrası karşılaştırmayla
 netleşir. UI şimdilik ham hex + Hub yorumunu gösterir.
 
-Uygulamanın gösterdiği Hub yorumu (2026-10-30): dongle `0012`, headset `1015`. Headset cevabında
-`b2=01` hedef byte'ının yankısı gibi duruyor, yani `1015` muhtemelen yanlış (gerçek değer `0015` ya da
-`b3..b6`). Hub'ın bilinen son sürümleri (`0008`/`0029`) ile karşılaştırma OTA config'inden yapılmalı.
+Hub yorumu doğru: dongle `0012`, headset `1015`. OTA manifest (`otaConfig_prod.json` →
+`"MCHOSE V9 PRO PID14429"`) headset için `type 1` (İngilizce bildirimler) son sürüm `1015.bin`,
+`type 0` (Çince) `0036.bin`; dongle son sürüm `0013_b0ab57.bin`. Yani bu kulaklık güncel İngilizce
+firmware'de, dongle bir sürüm geride. Headset sürümünün ilk hanesi dil tipini taşıyor.
 
 **Önemli:** Bir SET_FEATURE cevabı beklenirken ikinci SET_FEATURE gönderilirse dongle ikisini de
 EPIPE ile durduruyor. Firmware okuması tek seferde bir tane olmalı (uygulamada `m_firmwareReading`).
@@ -116,6 +117,10 @@ Flow control : in 55 [60 FF]=dur, [60 00]=devam
 Result       : in 55 [01 01 00]=başarılı, [01 00 00]=başarısız
 ```
 
+- Uygulamada: Lab → "Voice prompt silencer". C++ yamalayıcı (`src/core/FirmwareImage.*`) gerçek `1015.bin`
+  üzerinde Be-Quiet `build_firmware.py 8 9` çıktısıyla **byte-byte aynı** (opt-in test `realImageMatchesReference`).
+  Flasher (`FirmwareFlasher`) ayrı thread + ayrı hidraw handle; flash sırasında HeadsetController askıda.
+  **Flash henüz cihazda denenmedi.**
 - Firmware: AOTA konteyner, partition'lar 32 byte sabit XOR pad ile "şifreli",
   imza kontrolü yok. `tone.bin` = 18 sesli bildirim klibi; İngilizce FW'de **klip 8 = mic on, 9 = mic off**.
 - OTA config: `https://cdn.mchose.com.cn/OTA/PC/prod/otaFile/otaConfig_prod.json`,
@@ -128,6 +133,9 @@ Result       : in 55 [01 01 00]=başarılı, [01 00 00]=başarısız
   3. Ducking'in kendisi firmware `app.bin` içinde; kaldırmak için kod yaması gerekir (araştırma konusu).
 
 ### 2.5 Legacy `0x22` alt komutları — V9 TURBO ailesi resmi, **V9 PRO'da TEST EDİLMEDİ**
+
+Uygulamada: Lab sekmesi → "Experimental headset settings". Önce Read; okuma cevap verirse Write açılır.
+Cevaplar ham akıştan alt-komut eşleşmesiyle yakalanır (`55 22 <sub> <value>`).
 
 Hub `hidDeviceOptions` (reportId 85, `cmd=34 (0x22)`):
 
@@ -153,6 +161,8 @@ cmdType: Request `00 01`, Set `00 02`, Notify `00 04`. Komutlar: `SET_EQ_MODE 1`
 `FACTORY_RESET 27`, `SET_PROMPT_VOLUME 33`. Referans için kayıtlı; V9 PRO için uygulanmayacak.
 
 ### 2.7 Telephony / mikrofon butonu
+
+Uygulamada: Lab → "HID monitor". Polling (pil/mod) gizlenir, geri kalan her rapor vurgulanır.
 
 Descriptor'da telephony (Phone Mute 0x2F) input ve mute LED output var. C# yazarı mikrofon butonunun
 **hiç USB trafiği üretmediğini** söylüyor. Linux'ta `hidraw` dinleyerek tekrar doğrulanmalı
@@ -198,6 +208,22 @@ ALSA mixer (card 2) kontrolleri:
 ```
 
 ---
+
+### 3.1 Linux karşılıkları — uygulandı (2026-10-30)
+
+Hepsi ayrı `pipewire -c <conf>` alt süreçleri (`$XDG_RUNTIME_DIR/v9pro-control/*.conf`), canlı parametre `pw-cli set-param <node> Props`.
+Gerçek PipeWire 1.6'da yüklendiği ve varsayılanların kapanışta geri döndüğü doğrulandı.
+
+| Özellik | Düğüm | Not |
+|---|---|---|
+| EQ + bas/parlaklık/vokal + preamp | `v9pro_equalizer` (Audio/Sink) → kulaklık sink | builtin `bq_*` + `mixer`; açıkken default sink |
+| Gürültü engelleme | `v9pro_mic_denoised` (Audio/Source) | WebRTC (echo-cancel modülü) veya RNNoise LADSPA (kurulu değil) |
+| Mikrofon monitörü (yazılım) | `v9pro_mic_monitor` | mic → kulaklık sink, `mixer` kazancı, 128/48000 latency |
+| Mikrofon monitörü (donanım) | ALSA `'PCM',1` | Doğrulanmadı; monitör kapalıyken uygulama bunu 0'a çeker |
+
+EQ bant eşlemesi: Hub etiketleri 20/60/100/250/500/1k/2k/4k/8k/20k; uç bantlar raf filtre (32 Hz low-shelf,
+14 kHz high-shelf), diğerleri peaking. Bas = low-shelf @cutoff (level×1.2 dB), parlaklık = high-shelf 6 kHz
+(level×0.8 dB), vokal = peaking 2.5 kHz (level×0.6 dB). Hub'ın DSP'siyle birebir değil, yaklaşım.
 
 ## 4. Linux uygulama mimarisi (karar)
 

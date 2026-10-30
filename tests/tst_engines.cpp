@@ -85,6 +85,15 @@ private slots:
         QVERIFY(eq::headroomPreampDb(settings) <= -5.9);
     }
 
+    void overlappingBandsStillHitTheirSliders()
+    {
+        eq::Settings settings;
+        settings.gains = {13.0, 5.0, 20.0, 0.0, 0.0, -6.0, 0.0, 0.0, 0.0, 0.0};
+        for (int i = 0; i < eq::BandCount; ++i)
+            QVERIFY2(qAbs(eq::responseDb(settings, eq::bands()[i].frequency) - settings.gains[i]) < 0.1, eq::bands()[i].label);
+        QVERIFY(eq::headroomPreampDb(settings) >= -20.5);
+    }
+
     void enhancementsOnlyActWhenEnabled()
     {
         eq::Settings settings;
@@ -103,13 +112,15 @@ private slots:
         QVERIFY(config.contains(QStringLiteral("target.object = \"alsa_output.usb-X_MCHOSE_V9_PRO\"")));
         QVERIFY(config.contains(QStringLiteral("node.name = \"v9pro_equalizer\"")));
         QVERIFY(config.contains(QStringLiteral("name = eq_1 label = bq_lowshelf")));
-        QVERIFY(config.contains(QStringLiteral("\"Gain\" = 3.5000")));
+        // Band gains are written after overlap compensation, not as the raw slider value.
+        const QString gain = QString::number(eq::filters(settings).first().gainDb, 'f', 4);
+        QVERIFY(config.contains(QStringLiteral("\"Gain\" = ") + gain));
         QCOMPARE(config.count(QStringLiteral("label = bq_")), eq::BandCount + 3);
         QVERIFY(config.contains(QStringLiteral("outputs = [ \"clarity:Out\" ]")));
 
         const QString params = pw::equalizerParams(settings);
         QVERIFY(params.startsWith(QStringLiteral("{ params = [ \"preamp:Gain 1\"")));
-        QVERIFY(params.contains(QStringLiteral("\"eq_1:Gain\" 3.5000")));
+        QVERIFY(params.contains(QStringLiteral("\"eq_1:Gain\" ") + gain));
     }
 
     void noiseAndMonitorConfigs()

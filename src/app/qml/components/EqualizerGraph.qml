@@ -14,7 +14,11 @@ Item {
     property bool active: true
     signal bandMoved(int band, real gain)
 
-    readonly property real range: 20
+    // Vertical scale grows when enhancements push the curve past ±20 dB, but stays put while a
+    // handle is dragged so the handle keeps tracking the pointer.
+    property real range: 20
+    property int activeDrags: 0
+    readonly property real curveExtent: root.curve.reduce((m, p) => Math.max(m, Math.abs(p.y)), 0)
     readonly property var bandFrequencies: [32, 60, 100, 250, 500, 1000, 2000, 4000, 8000, 14000]
     readonly property color lineColor: active ? Theme.accent : Theme.textMuted
 
@@ -30,16 +34,22 @@ Item {
 
     implicitHeight: 240
 
+    Binding on range {
+        when: root.activeDrags === 0
+        value: Math.max(20, Math.ceil(root.curveExtent / 10) * 10)
+        restoreMode: Binding.RestoreNone
+    }
+
     Accessible.role: Accessible.Chart
     Accessible.name: qsTr("Equalizer frequency response")
 
     Repeater {
-        model: [-20, -10, 0, 10, 20]
+        model: [-root.range, -root.range / 2, 0, root.range / 2, root.range]
 
         delegate: Item {
             id: gridLine
 
-            required property int modelData
+            required property real modelData
 
             y: root.yForGain(gridLine.modelData)
             width: root.width
@@ -83,15 +93,12 @@ Item {
             fillColor: Qt.rgba(root.lineColor.r, root.lineColor.g, root.lineColor.b, 0.10)
             joinStyle: ShapePath.RoundJoin
 
-            startX: 0
-            startY: root.yForGain(0)
-
+            // The polyline is its own subpath, so the 0 dB end points must be part of it for the
+            // fill to close along the baseline.
             PathPolyline {
-                path: root.curve.map(p => Qt.point(root.xForPosition(p.x), root.yForGain(p.y)))
-            }
-            PathLine {
-                x: root.width
-                y: root.yForGain(0)
+                path: [Qt.point(0, root.yForGain(0))]
+                    .concat(root.curve.map(p => Qt.point(root.xForPosition(p.x), root.yForGain(p.y))))
+                    .concat([Qt.point(root.width, root.yForGain(0))])
             }
         }
     }
@@ -126,7 +133,11 @@ Item {
                 xAxis.enabled: false
                 target: null
                 property real startGain: 0
-                onActiveChanged: if (active) drag.startGain = handle.gain
+                onActiveChanged: {
+                    root.activeDrags += active ? 1 : -1
+                    if (active)
+                        drag.startGain = handle.gain
+                }
                 onTranslationChanged: {
                     const perPixel = root.range / (root.height / 2 - 12)
                     root.bandMoved(handle.index, Math.round((drag.startGain - drag.translation.y * perPixel) * 2) / 2)

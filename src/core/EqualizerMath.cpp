@@ -13,6 +13,10 @@ constexpr double BrillianceFrequency = 6000.0;
 constexpr double ClarityFrequency = 2500.0;
 constexpr double ClarityQ = 0.9;
 constexpr double ShelfQ = 0.707;
+// Neighbouring bands overlap, so the raw slider gains do not land where the handles are drawn.
+constexpr int CompensationIterations = 40;
+constexpr double CompensationStep = 0.7;
+constexpr double CompensatedLimitDb = 30.0;
 
 struct Coefficients {
     double b0, b1, b2, a0, a1, a2;
@@ -54,6 +58,36 @@ double magnitudeDb(const Biquad &f, double frequency)
     return 20.0 * std::log10(std::abs(h));
 }
 
+double chainDb(const QList<Biquad> &chain, double frequency)
+{
+    double total = 0.0;
+    for (const Biquad &f : chain)
+        total += magnitudeDb(f, frequency);
+    return total;
+}
+
+// Adjusts the filter gains until the summed response at each band centre equals its slider,
+// so the curve passes through the handles like a hardware graphic EQ.
+std::array<double, BandCount> compensatedGains(const std::array<double, BandCount> &targets)
+{
+    QList<Biquad> chain;
+    for (int i = 0; i < BandCount; ++i) {
+        const BandSpec &spec = bands()[i];
+        chain.append({spec.type, spec.frequency, spec.q, targets[i]});
+    }
+    for (int iteration = 0; iteration < CompensationIterations; ++iteration) {
+        std::array<double, BandCount> errors{};
+        for (int i = 0; i < BandCount; ++i)
+            errors[i] = targets[i] - chainDb(chain, chain[i].frequency);
+        for (int i = 0; i < BandCount; ++i)
+            chain[i].gainDb = std::clamp(chain[i].gainDb + CompensationStep * errors[i], -CompensatedLimitDb, CompensatedLimitDb);
+    }
+    std::array<double, BandCount> gains{};
+    for (int i = 0; i < BandCount; ++i)
+        gains[i] = chain[i].gainDb;
+    return gains;
+}
+
 } // namespace
 
 const std::array<BandSpec, BandCount> &bands()
@@ -92,9 +126,13 @@ QList<Biquad> filters(const Settings &settings)
 {
     QList<Biquad> list;
     list.reserve(BandCount + 3);
+    std::array<double, BandCount> targets{};
+    for (int i = 0; i < BandCount; ++i)
+        targets[i] = std::clamp(settings.gains[i], MinGainDb, MaxGainDb);
+    const std::array<double, BandCount> gains = compensatedGains(targets);
     for (int i = 0; i < BandCount; ++i) {
         const BandSpec &spec = bands()[i];
-        list.append({spec.type, spec.frequency, spec.q, std::clamp(settings.gains[i], MinGainDb, MaxGainDb)});
+        list.append({spec.type, spec.frequency, spec.q, gains[i]});
     }
     const Enhancements &e = settings.enhancements;
     list.append({FilterType::LowShelf, double(std::clamp(e.bassCutoffHz, 50, 400)), ShelfQ, bassGainDb(e)});
@@ -105,21 +143,19 @@ QList<Biquad> filters(const Settings &settings)
 
 double responseDb(const Settings &settings, double frequency)
 {
-    double total = settings.preampDb;
-    for (const Biquad &f : filters(settings))
-        total += magnitudeDb(f, frequency);
-    return total;
+    return settings.preampDb + chainDb(filters(settings), frequency);
 }
 
 QList<QPointF> responseCurve(const Settings &settings, int points)
 {
     QList<QPointF> curve;
     curve.reserve(points);
+    const QList<Biquad> chain = filters(settings);
     const double lo = std::log10(20.0);
     const double hi = std::log10(20000.0);
     for (int i = 0; i < points; ++i) {
         const double f = std::pow(10.0, lo + (hi - lo) * i / (points - 1));
-        curve.append({f, responseDb(settings, f)});
+        curve.append({f, settings.preampDb + chainDb(chain, f)});
     }
     return curve;
 }
